@@ -45,7 +45,11 @@ Installation Instructions:
    sudo apt-get install libusb-1.0-0-dev
    ```
     
-   Mac:```brew install glfw3```
+   Mac:
+   ```
+   brew install glfw3
+   brew install libusb
+   ```
    
 8. Install Redis-Server
 
