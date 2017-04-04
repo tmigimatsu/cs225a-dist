@@ -57,21 +57,21 @@ Installation Instructions:
    
 10. Clone, Build, Install RBDL
 
-   ```
-   hg clone https://bitbucket.org/rbdl/rbdl
-   cd rbdl
-   mkdir build 
-   cd build
-   cmake ..
-   make -j4
-   sudo make install
-   ```
+    ```
+    hg clone https://bitbucket.org/rbdl/rbdl
+    cd rbdl
+    mkdir build 
+    cd build
+    cmake ..
+    make -j4
+    sudo make install
+    ```
    
 11. Install Chai
 
     Download and extract the appropriate (Windows or Mac) release from : http://www.chai3d.org/download/releases
     Cd into the extracted folder
-    
+ 
     ```
     mkdir build
     cd build
@@ -90,6 +90,7 @@ Installation Instructions:
     ````
     
  13. Clone This Repo
+ 
     ```
     cd HW0
     mkdir build
