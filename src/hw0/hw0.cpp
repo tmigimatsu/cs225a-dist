@@ -14,8 +14,8 @@ void stop(int){runloop = false;}
 using namespace std;
 
 const string world_file = "resources/world.urdf";
-const string robot_file = "resources/kuka_iiwa/kuka_iiwa.urdf";
-const string robot_name = "Kuka-IIWA";
+const string robot_file = "resources/RRPbot.urdf";
+const string robot_name = "RRPbot";
 
 unsigned long long controller_counter = 0;
 std::string fgc_command_enabled = "";
@@ -96,7 +96,7 @@ int main() {
 	redis_client.setCommandIs(JOINT_KV_KEY,std::to_string(joint_kv));
 
 	// operational space position task
-	std::string op_pos_task_link_name = "link6";
+	std::string op_pos_task_link_name = "link3";
 	Eigen::Vector3d op_pos_task_pos_in_link = Eigen::Vector3d(0.0, 0.0, 0.0);
 	Eigen::Vector3d op_pos_task_x, op_pos_task_dx, op_pos_task_x_desired, op_pos_task_f;
 	Eigen::MatrixXd op_pos_task_jacobian(3,dof), op_pos_task_J(3,dof);
@@ -114,25 +114,6 @@ int main() {
 	robot->position(initial_position,op_pos_task_link_name,op_pos_task_pos_in_link);
 	// op_pos_task_x_desired = initial_position + Eigen::Vector3d(0.0,0.0,-0.15);
 	redis_client.setEigenMatrixDerivedString(POS_TASK_X_DESIRED_KEY,initial_position);
-
-	// operational space orientation task
-	std::string op_ori_task_link_name = "link6";
-	Eigen::Matrix3d op_ori_task_R, op_ori_task_R_desired;
-	Eigen::Vector3d op_ori_task_w, op_ori_task_f;
-	Eigen::MatrixXd op_ori_task_jacobian(3,dof), op_ori_task_J(3,dof);
-	Eigen::MatrixXd Lambda_ori(3,3);
-	// Eigen::MatrixXd op_ori_task_N(dof,dof);
-	Eigen::VectorXd op_ori_task_torques(dof);
-
-	Eigen::Matrix3d op_ori_kp = 100.0*Eigen::Matrix3d::Identity();
-	Eigen::Matrix3d op_ori_kv = 20.0*Eigen::Matrix3d::Identity();
-	redis_client.setEigenMatrixDerivedString(ORI_KP_KEY, op_ori_kp);
-	redis_client.setEigenMatrixDerivedString(ORI_KV_KEY, op_ori_kv);
-
-	// robot->Jw(op_ori_task_jacobian,op_ori_task_link_name);
-	Eigen::Matrix3d initial_orientation;
-	robot->rotation(initial_orientation,op_ori_task_link_name);
-	redis_client.setEigenMatrixDerivedString(ORI_TASK_R_DESIRED_KEY,initial_orientation);
 
 	// create a loop timer
 	double control_freq = 1000;

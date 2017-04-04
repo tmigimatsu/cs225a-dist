@@ -1,0 +1,49 @@
+<?xml version="1.0" ?>
+<!--simple pbot-->
+
+<robot name="RRPbot">
+    <link name="base_link">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+            <mass value="0" />
+            <inertia ixx="0.01" iyy="0.01" izz="0.01" ixy="0" ixz="0" iyz="0" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+            <geometry>
+                <cylinder radius="0.25" length="1.0"/>
+            </geometry>
+        </visual>
+        <visual>
+            <origin xyz="0.0 0.0 0.25" rpy="0 0 0" />
+            <geometry>
+                <box size="0.25 0.25 0.25"/>
+            </geometry>
+        </visual>
+    </link>
+    <link name="link0">
+        <inertial>
+            <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+            <mass value="0" />
+        </inertial>
+        <visual>
+            <origin xyz="0.0 0.0 0.5" rpy="0 0 0" />
+            <geometry>
+                <sphere radius="0.2" />
+            </geometry>
+        </visual>
+    </link>
+    
+    <joint name="j0" type="prismatic">
+        <parent link="base_link" />
+        <child link="link0" />
+        <origin xyz="0.000000 0.000000 2.000000" rpy="-0.000000 0.000000 -0.000000" />
+        <axis xyz="0 0 1" />
+        <limit lower="-2.967" upper="2.967" effort="176" velocity="1.7104" />
+    </joint>
+    
+</robot>
+
+
+
