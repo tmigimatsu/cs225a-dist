@@ -38,11 +38,15 @@ find_library(HIREDIS_LIBRARY hiredis)
 find_package(glfw3 REQUIRED)
 find_library(GLFW_LIBRARY glfw)
 
+# - jsoncpp
+find_library(JSONCPP_LIBRARY jsoncpp)
+
 set(CS225A_COMMON_LIBRARIES
 	${CHAI3D_LIBARIES}
 	${SAI2-COMMON_LIBRARIES}
 	${HIREDIS_LIBRARY}
 	${GLFW_LIBRARY}
+	${JSONCPP_LIBRARY}
 	)
 
 # add apps
