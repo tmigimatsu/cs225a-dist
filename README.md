@@ -94,8 +94,17 @@ Installation Instructions:
     cmake ..
     make -j4
     ```
+13. Clone the SAI2 Common library and Build
+    ```
+    git clone https://github.com/manips-sai/sai2-common.git
+    cd sai2-common
+    mkdir build
+    cd build
+    cmake ..
+    make -j4
+    ```
     
-13. Clone This Repo
+14. Clone This Repo
     ```
     cd HW0
     mkdir build
