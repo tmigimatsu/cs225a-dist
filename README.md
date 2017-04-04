@@ -2,7 +2,7 @@
 Repository for class resources: CS225a experimental robotics
 
 Installation Instructions:
-1. Install Brew for Mac or have Ubuntu installed or any other distro with the following packages. Also install git and hg (mercurial). Windows will have to dualboot ubuntu or install a VM.
+1. Install Brew for Mac or have Ubuntu installed or any other distro with the following packages. Also install git. Windows will have to dualboot ubuntu or install a VM.
 
 2. Install Cmake
 
@@ -36,11 +36,14 @@ Installation Instructions:
    
 7. Install GLFW + Other things Chai3D Needs
 
-   Linux:```sudo apt-get install libglfw3-dev
-            sudo apt-get install Xorg dev
-            sudo apt-get install freeglut3-dev
-            sudo apt-get install libasound2-dev
-            sudo apt-get install libusb-1.0-0-dev?```
+   Linux:
+   ```
+   sudo apt-get install libglfw3-dev
+   sudo apt-get install xorg-dev
+   sudo apt-get install freeglut3-dev
+   sudo apt-get install libasound2-dev
+   sudo apt-get install libusb-1.0-0-dev
+   ```
     
    Mac:```brew install glfw3```
    
@@ -57,9 +60,9 @@ Installation Instructions:
    Mac:```brew install yaml```
    
 10. Clone, Build, Install RBDL
-
+    Download a copy of the repository as a zip from https://bitbucket.org/rbdl/rbdl
+    Extract into a folder (should be called rbdl)
     ```
-    hg clone https://bitbucket.org/rbdl/rbdl
     cd rbdl
     mkdir build 
     cd build
