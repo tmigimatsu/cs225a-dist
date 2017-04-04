@@ -44,3 +44,6 @@ set(CS225A_COMMON_LIBRARIES
 	${HIREDIS_LIBRARY}
 	${GLFW_LIBRARY}
 	)
+
+# add apps
+add_subdirectory(src/simulation)
