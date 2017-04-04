@@ -2,7 +2,7 @@
 Repository for class resources: CS225a experimental robotics
 
 Installation Instructions:
-1. Install Brew for Mac or have Ubuntu installed or any other distro with the following packages. Also install git and hg (mercurial).
+1. Install Brew for Mac or have Ubuntu installed or any other distro with the following packages. Also install git and hg (mercurial). Windows will have to dualboot ubuntu or install a VM.
 
 2. Install Cmake
 
@@ -37,6 +37,9 @@ Installation Instructions:
 7. Install GLFW
 
    ```sudo apt-get install libglfw3-dev```
+   + Xorg dev?
+   + freeglut3-dev?
+   + libasound2-dev
     
    ```brew install libglfw3-dev```
    
@@ -61,6 +64,36 @@ Installation Instructions:
    cd build
    cmake ..
    make -j4
-    
+   sudo make install
    ```
    
+11. Install Chai
+
+    Download and extract the appropriate (Windows or Mac) release from : http://www.chai3d.org/download/releases
+    Cd into the extracted folder
+    
+    ```
+    mkdir build
+    cd build
+    cmake ..
+    make -j4
+    make install
+    ```
+    
+12. Extract the Zip of SAI2 Simulation Library given to you and cd into the extracted folder.
+    ```
+    mkdir build
+    cd build
+    cmake ..
+    make -j4
+    make install
+    ````
+    
+ 13. Clone This Repo
+    ```
+    cd HW0
+    mkdir build
+    cd build
+    cmake ..
+    make
+    ```
