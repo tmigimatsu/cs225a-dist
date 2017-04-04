@@ -63,7 +63,7 @@ Installation Instructions:
     cd rbdl
     mkdir build 
     cd build
-    cmake ..
+    cmake -DRBDL_BUILD_ADDON_URDFREADER=On ..
     make -j4
     sudo make install
     ```
