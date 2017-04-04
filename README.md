@@ -12,49 +12,49 @@ Installation Instructions:
    
 3. Install Eigen
 
-   ```sudo apt-get install libeigen3-dev```
+   Linux:```sudo apt-get install libeigen3-dev```
     
-   ```brew install libeigen3-dev```
+   Mac:```brew install eigen```
     
 4. Install TinyXML
  
-   ```sudo apt-get install libtinyxml2-dev```
+   Linux:```sudo apt-get install libtinyxml2-dev```
     
-   ```brew install libtinyxml2-dev```
+   Mac:```brew install tinyxml2```
 
 5. Install JsonCPP
 
-   ```sudo apt-get install libjsoncpp-dev```
+   Linux:```sudo apt-get install libjsoncpp-dev```
     
-   ```brew install libjsoncpp-dev```
+   Mac:```brew install jsoncpp```
    
 6. Install HiRedis Client
 
-   ```sudo apt-get install libhiredis-dev```
+   Linux:```sudo apt-get install libhiredis-dev```
     
-   ```brew install libhiredis-dev```
+   Mac:```brew install hiredis```
    
-7. Install GLFW
+7. Install GLFW + Other things Chai3D Needs
 
-   ```sudo apt-get install libglfw3-dev```
-   + Xorg dev?
-   + freeglut3-dev?
-   + libasound2-dev?
-   + sudo apt-get install libusb-1.0-0-dev?
+   Linux:```sudo apt-get install libglfw3-dev
+            sudo apt-get install Xorg dev
+            sudo apt-get install freeglut3-dev
+            sudo apt-get install libasound2-dev
+            sudo apt-get install libusb-1.0-0-dev?```
     
-   ```brew install libglfw3-dev```
+   Mac:```brew install glfw3```
    
 8. Install Redis-Server
 
-   ```sudo apt-get install redis-server```
+   Linux:```sudo apt-get install redis-server```
     
-   ```brew install redis-server```
+   Mac:```brew install redis```
    
 9. Install Yaml-CPP
 
-   ```sudo apt-get install libyaml-cpp-dev```
+   Linux:```sudo apt-get install libyaml-cpp-dev```
     
-   ```brew install libyaml-cpp-dev```
+   Mac:```brew install yaml```
    
 10. Clone, Build, Install RBDL
 
