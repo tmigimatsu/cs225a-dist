@@ -78,7 +78,6 @@ Installation Instructions:
     cd build
     cmake ..
     make -j4
-    make install
     ```
     
 12. Extract the Zip of SAI2 Simulation Library given to you and cd into the extracted folder.
@@ -87,7 +86,6 @@ Installation Instructions:
     cd build
     cmake ..
     make -j4
-    make install
     ```
     
 13. Clone This Repo
