@@ -90,8 +90,7 @@ Installation Instructions:
     make install
     ```
     
- 13. Clone This Repo
- 
+13. Clone This Repo
     ```
     cd HW0
     mkdir build
