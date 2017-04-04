@@ -63,7 +63,7 @@ Installation Instructions:
     cd rbdl
     mkdir build 
     cd build
-    cmake -DRBDL_BUILD_ADDON_URDFREADER=On ..
+    cmake -DRBDL_BUILD_ADDON_URDFREADER=On -DRBDL_USE_ROS_URDF_LIBRARY=OFF ..
     make -j4
     sudo make install
     ```
