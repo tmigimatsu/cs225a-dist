@@ -2,7 +2,7 @@
 Repository for class resources: CS225a experimental robotics
 
 Installation Instructions:
-1. Install Brew for Mac or have Ubuntu installed or any other distro with the following packages. Also install git. Windows will have to dualboot ubuntu or install a VM.
+1. Install Brew for Mac (https://brew.sh/) or have Ubuntu installed or any other distro with the following packages. Also install git (sudo apt-get install git). Windows will have to dualboot ubuntu or install a VM.
 
 2. Install Cmake
 
