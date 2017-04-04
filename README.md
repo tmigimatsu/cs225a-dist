@@ -87,7 +87,7 @@ Installation Instructions:
     cmake ..
     make -j4
     make install
-    ````
+    ```
     
  13. Clone This Repo
  
