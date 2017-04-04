@@ -70,7 +70,7 @@ Installation Instructions:
    
 11. Install Chai
 
-    Download and extract the appropriate (Windows or Mac) release from : http://www.chai3d.org/download/releases
+    Download and extract the multiplatform release from : http://www.chai3d.org/download/releases
     Cd into the extracted folder
  
     ```
