@@ -114,3 +114,6 @@ Installation Instructions:
     ./hw0 &
     ./visualizer &
     ```
+    Note this opens up the applications in the background, use "jobs" to see currently running jobs and "fg" or "bg" to foreground next job or background next job
+   
+16. Read the source code of hw0 inside src/hw0/hw0.cpp and the URDF file src/RRPbot.urdf and src/world.urdf to understand what is happening inside the robot code and how the simple robot is described both kinematically and graphically.
