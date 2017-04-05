@@ -39,7 +39,19 @@ find_package(glfw3 REQUIRED)
 find_library(GLFW_LIBRARY glfw)
 
 # - jsoncpp
-find_library(JSONCPP_LIBRARY jsoncpp)
+if (CMAKE_SYSTEM_NAME MATCHES Darwin) 
+	find_library(JSONCPP_LIBRARY jsoncpp)
+elseif (CMAKE_SYSTEM_NAME MATCHES Linux)
+	find_package(PkgConfig REQUIRED)
+	pkg_check_modules(JSONCPP jsoncpp)
+	include_directories(${JSONCPP_INCLUDE_DIRS})
+	link_directories(${JSONCPP_LIBRARY_DIRS})
+	set(JSONCPP_LIBRARY ${JSONCPP_LIBRARIES})
+endif ()
+
+# - eigen3
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
 
 set(CS225A_COMMON_LIBRARIES
 	${CHAI3D_LIBARIES}
@@ -50,6 +62,13 @@ set(CS225A_COMMON_LIBRARIES
 	)
 
 # add apps
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY                ${PROJECT_SOURCE_DIR}/bin)
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG          ${PROJECT_SOURCE_DIR}/bin)
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL     ${PROJECT_SOURCE_DIR}/bin)
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE        ${PROJECT_SOURCE_DIR}/bin)
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${PROJECT_SOURCE_DIR}/bin)
+set (CS225A_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
+
 add_subdirectory(src/visualization)
 add_subdirectory(src/simulation)
 add_subdirectory(src/hw0)
