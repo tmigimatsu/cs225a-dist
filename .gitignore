@@ -31,6 +31,13 @@
 # Build/Bin Folder
 build
 bin
+build_rel
+build_dbg
 
 # VScode Dir
 .vscode
+
+# External libraries
+external
+sai2-common
+sai2-simulation

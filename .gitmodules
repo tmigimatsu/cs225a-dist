@@ -1,0 +1,4 @@
+[submodule "sai2-common"]
+	path = sai2-common
+	url = https://github.com/manips-sai/sai2-common.git
+	branch = master
