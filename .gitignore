@@ -28,5 +28,9 @@
 *.out
 *.app
 
-# Build Folder
+# Build/Bin Folder
 build
+bin
+
+# VScode Dir
+.vscode
