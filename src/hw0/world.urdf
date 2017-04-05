@@ -4,7 +4,7 @@
 
 	<robot name="RRPbot">
 		<!-- model node is required -->
-		<model dir="resources" path="RRPbot.urdf" name="RRPbot" />
+		<model dir="resources/hw0" path="RRPbot.urdf" name="RRPbot" />
 		<!-- origin node is optional -->
 		<origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
 	</robot>
