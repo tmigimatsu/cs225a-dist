@@ -56,12 +56,6 @@ int main(int argc, char** argv) {
 	// load robots
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 
-	// set initial position to match kuka driver
-	sim->setJointPosition(robot_name, 0, 90.0/180.0*M_PI);
-	sim->setJointPosition(robot_name, 1, 30.0/180.0*M_PI);
-	sim->setJointPosition(robot_name, 3, 60.0/180.0*M_PI);
-	sim->setJointPosition(robot_name, 5, 90.0/180.0*M_PI);
-
 	// create a loop timer
 	double sim_freq = 1000;  // set the simulation frequency. Ideally 10kHz
 	LoopTimer timer;
@@ -71,8 +65,8 @@ int main(int argc, char** argv) {
 	timer.initializeTimer(1000000); // 1 ms pause before starting loop
 
 
-	Eigen::VectorXd robot_torques(7);
-	Eigen::VectorXd robot_torques_interact(7);
+	Eigen::VectorXd robot_torques(robot->dof());
+	Eigen::VectorXd robot_torques_interact(robot->dof());
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
