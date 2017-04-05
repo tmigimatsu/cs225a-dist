@@ -106,9 +106,11 @@ Installation Instructions:
     
 14. Clone This Repo
     ```
-    cd HW0
-    mkdir build
-    cd build
-    cmake ..
-    make
+    sh build_all.sh
+    ```
+
+15. Inside bin, you will find visualizer, simulator, and hw0
+    ```
+    ./hw0 &
+    ./visualizer &
     ```
