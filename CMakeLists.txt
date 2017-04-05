@@ -35,7 +35,7 @@ add_definitions(${SAI2-COMMON_DEFINITIONS})
 find_library(HIREDIS_LIBRARY hiredis)
 
 # - glfw3
-find_package(glfw3 REQUIRED)
+find_package(glfw3 QUIET)
 find_library(GLFW_LIBRARY glfw)
 
 # - jsoncpp
