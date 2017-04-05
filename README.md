@@ -113,8 +113,8 @@ Repository for class resources: CS225a experimental robotics
     ```
 13. Clone the SAI2 Common library and Build
     ```
+    git clone https://github.com/manips-sai/sai2-common.git
     cd sai2-common
-    git submodule update --init --recursive
     mkdir build
     cd build
     cmake ..
@@ -135,9 +135,6 @@ Repository for class resources: CS225a experimental robotics
    ```
    Note this opens up the applications in the background, use "jobs" to see currently running jobs and "fg" or "bg" to foreground next job or background next job
    
-   Alternatively, you can run a script that will run everything at once and kill them both with ctrl-c:
-   ```
-   ./hw0_run
-   ```
+1.5 You can also run the script inside the bin folder "run_hw0.sh" to run hw0. Ctrl-c on the shell to quit.
    
 2. Read the source code of hw0 inside src/hw0/hw0.cpp and the URDF file src/RRPbot.urdf and src/world.urdf to understand what is happening inside the robot code and how the simple robot is described both kinematically and graphically.

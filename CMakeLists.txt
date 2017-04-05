@@ -71,3 +71,4 @@ set (CS225A_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 
 add_subdirectory(src/visualization)
 add_subdirectory(src/simulation)
+add_subdirectory(src/hw0)
