@@ -14,23 +14,26 @@ void sighandler(int sig)
 
 using namespace std;
 
-const string world_file = "resources/world.urdf";
-const string robot_file = "resources/kuka_iiwa/kuka_iiwa.urdf";
-const string robot_name = "Kuka-IIWA";
+string world_file = "";
+string robot_file = "";
+string robot_name = "";
 
-// redis keys:
+// redis keys: 
+// NOTE: keys are formatted to be: key_preprend::<robot-name>::<KEY>
+const std::string key_preprend = "cs225a::robot::";
 // - read:
-// const std::string JOINT_ANGLES_DES_KEY  = "scl::robot::iiwaBot::sensors::q_des";
-const std::string JOINT_TORQUES_COMMANDED_KEY = "scl::robot::iiwaBot::actuators::fgc";
-const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "scl::robot::iiwaBot::actuators::fgc_interact";
+const std::string JOINT_TORQUES_COMMANDED_KEY = "::actuators::fgc";
+const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - write:
-const std::string JOINT_ANGLES_KEY  = "scl::robot::iiwaBot::sensors::q";
-const std::string JOINT_VELOCITIES_KEY = "scl::robot::iiwaBot::sensors::dq";
-const std::string SIM_TIMESTAMP_KEY = "scl::robot::iiwaBot::timestamp";
-// const std::string FGC_ENABLE_KEY  = "scl::robot::iiwaBot::fgc_command_enabled";
-// const std::string JOINT_TORQUES_KEY = "scl::robot::iiwaBot::sensors::fgc";
+const std::string JOINT_ANGLES_KEY  = "::sensors::q";
+const std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
+const std::string SIM_TIMESTAMP_KEY = "::timestamp";
 
-int main() {
+// function to parse command line arguments
+void parseCommandline(int argc, char** argv);
+
+int main(int argc, char** argv) {
+	parseCommandline(argc, argv);
 	cout << "Loading URDF world model file: " << world_file << endl;
 
 	// start redis client
@@ -52,12 +55,6 @@ int main() {
 	// load robots
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 
-	// set initial position to match kuka driver
-	sim->setJointPosition(robot_name, 0, 90.0/180.0*M_PI);
-	sim->setJointPosition(robot_name, 1, 30.0/180.0*M_PI);
-	sim->setJointPosition(robot_name, 3, 60.0/180.0*M_PI);
-	sim->setJointPosition(robot_name, 5, 90.0/180.0*M_PI);
-
 	// create a loop timer
 	double sim_freq = 1000;  // set the simulation frequency. Ideally 10kHz
 	LoopTimer timer;
@@ -67,15 +64,15 @@ int main() {
 	timer.initializeTimer(1000000); // 1 ms pause before starting loop
 
 
-	Eigen::VectorXd robot_torques(7);
-	Eigen::VectorXd robot_torques_interact(7);
+	Eigen::VectorXd robot_torques(robot->dof());
+	Eigen::VectorXd robot_torques_interact(robot->dof());
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
 
 		// read torques from Redis
-		redis_client.getEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
-		redis_client.getEigenMatrixDerivedString(JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
+		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
 		sim->setJointTorques(robot_name, robot_torques+robot_torques_interact);
 
 		// update simulation by 1ms
@@ -87,11 +84,26 @@ int main() {
 		robot->updateModel();
 		
 		// write joint kinematics to redis
-		redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
-		redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
+		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
 
-		redis_client.setCommandIs(SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
+		redis_client.setCommandIs(key_preprend+robot_name+SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
 
 	}
 	return 0;
+}
+
+//------------------------------------------------------------------------------
+void parseCommandline(int argc, char** argv) {
+	if (argc != 4) {
+		cout << "Usage: simulator <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
+		exit(0);
+	}
+	// argument 0: executable name
+	// argument 1: <path-to-world.urdf>
+	world_file = string(argv[1]);
+	// argument 2: <path-to-robot.urdf>
+	robot_file = string(argv[2]);
+	// argument 3: <robot-name>
+	robot_name = string(argv[3]);
 }

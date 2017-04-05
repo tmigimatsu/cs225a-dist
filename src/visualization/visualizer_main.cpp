@@ -18,21 +18,22 @@
 
 using namespace std;
 
-const string world_file = "resources/hw0/world.urdf";
-const string robot_file = "resources/hw0/RRPbot.urdf";
-const string robot_name = "RRPbot";
+string world_file = "";
+string robot_file = "";
+string robot_name = "";
 const string camera_name = "camera_fixed";
 
-// redis keys:
+// redis keys: 
+// NOTE: keys are formatted to be: key_preprend::<robot-name>::<KEY>
+const std::string key_preprend = "cs225a::robot::";
 // - write:
-// const std::string JOINT_ANGLES_DES_KEY  = "scl::robot::iiwaBot::sensors::q_des";
-// const std::string JOINT_TORQUES_COMMANDED_KEY = "scl::robot::iiwaBot::actuators::fgc";
-const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "scl::robot::iiwaBot::actuators::fgc_interact";
+const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - read:
-const std::string JOINT_ANGLES_KEY  = "scl::robot::iiwaBot::sensors::q";
-const std::string JOINT_VELOCITIES_KEY = "scl::robot::iiwaBot::sensors::dq";
-// const std::string FGC_ENABLE_KEY  = "scl::robot::iiwaBot::fgc_command_enabled";
-// const std::string JOINT_TORQUES_KEY = "scl::robot::iiwaBot::sensors::fgc";
+const std::string JOINT_ANGLES_KEY  = "::sensors::q";
+const std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
+
+// function to parse command line arguments
+void parseCommandline(int argc, char** argv);
 
 // callback to print glfw errors
 void glfwError(int error, const char* description);
@@ -51,7 +52,8 @@ bool fTransYn = false;
 bool fRotPanTilt = false;
 bool fRobotLinkSelect = false;
 
-int main() {
+int main(int argc, char** argv) {
+	parseCommandline(argc, argv);
 	cout << "Loading URDF world model file: " << world_file << endl;
 
 	// start redis client
@@ -115,8 +117,8 @@ int main() {
     while (!glfwWindowShouldClose(window))
 	{
 		// read from Redis
-		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
-		redis_client.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
+		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
 
 		// update transformations
 		robot->updateModel();
@@ -209,7 +211,7 @@ int main() {
 		// get UI torques
 		force_widget.getUIJointTorques(interaction_torques);
 		//write to redis
-		redis_client.setEigenMatrixDerivedString(JOINT_INTERACTION_TORQUES_COMMANDED_KEY, interaction_torques);
+		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, interaction_torques);
 	}
 
     // destroy context
@@ -219,6 +221,21 @@ int main() {
     glfwTerminate();
 
 	return 0;
+}
+
+//------------------------------------------------------------------------------
+void parseCommandline(int argc, char** argv) {
+	if (argc != 4) {
+		cout << "Usage: visualizer <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
+		exit(0);
+	}
+	// argument 0: executable name
+	// argument 1: <path-to-world.urdf>
+	world_file = string(argv[1]);
+	// argument 2: <path-to-robot.urdf>
+	robot_file = string(argv[2]);
+	// argument 3: <robot-name>
+	robot_name = string(argv[3]);
 }
 
 //------------------------------------------------------------------------------
