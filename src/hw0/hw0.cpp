@@ -13,6 +13,8 @@ const string robot_file = "resources/hw0/RRPbot.urdf";
 const string robot_name = "RRPbot";
 
 // Redis is just a key value store, publish/subscribe is also possible
+// The visualizer and simulator will have keys like "cs225a::robot::{ROBOTNAME}::sensors::q"
+// You can hardcode the robot name in like below or read them in from cli
 // redis keys:
 // - write:
 const std::string JOINT_ANGLES_KEY  = "cs225a::robot::RRPbot::sensors::q";
