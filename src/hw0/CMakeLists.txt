@@ -10,6 +10,6 @@ TARGET_LINK_LIBRARIES (hw0
 
 # export resources such as model files.
 # NOTE: this requires an install build
-SET(RESOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/resources)
+SET(RESOURCE_DIR ${CS225A_BIN_DIR}/resources)
 FILE(MAKE_DIRECTORY ${RESOURCE_DIR})
 FILE(COPY RRPbot.urdf world.urdf DESTINATION ${RESOURCE_DIR})
