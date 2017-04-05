@@ -95,7 +95,6 @@ cd ../..
 # Install Chai3d
 # --------------
 
-cd external
 curl -L http://www.chai3d.org/download/chai3d-3.2.0-CMake.zip -o chai3d-3.2.0.zip
 unzip chai3d-3.2.0.zip
 mv chai3d-3.2.0 chai3d
