@@ -52,3 +52,4 @@ set(CS225A_COMMON_LIBRARIES
 # add apps
 add_subdirectory(src/visualization)
 add_subdirectory(src/simulation)
+add_subdirectory(src/hw0)
