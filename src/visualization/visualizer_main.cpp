@@ -18,9 +18,9 @@
 
 using namespace std;
 
-const string world_file = "resources/world.urdf";
-const string robot_file = "resources/kuka_iiwa/kuka_iiwa.urdf";
-const string robot_name = "Kuka-IIWA";
+string world_file = "";
+string robot_file = "";
+string robot_name = "";
 const string camera_name = "camera_fixed";
 
 // redis keys:
@@ -33,6 +33,9 @@ const std::string JOINT_ANGLES_KEY  = "scl::robot::iiwaBot::sensors::q";
 const std::string JOINT_VELOCITIES_KEY = "scl::robot::iiwaBot::sensors::dq";
 // const std::string FGC_ENABLE_KEY  = "scl::robot::iiwaBot::fgc_command_enabled";
 // const std::string JOINT_TORQUES_KEY = "scl::robot::iiwaBot::sensors::fgc";
+
+// function to parse command line arguments
+void parseCommandline(int argc, char** argv);
 
 // callback to print glfw errors
 void glfwError(int error, const char* description);
@@ -51,7 +54,8 @@ bool fTransYn = false;
 bool fRotPanTilt = false;
 bool fRobotLinkSelect = false;
 
-int main() {
+int main(int argc, char** argv) {
+	parseCommandline(argc, argv);
 	cout << "Loading URDF world model file: " << world_file << endl;
 
 	// start redis client
@@ -219,6 +223,21 @@ int main() {
     glfwTerminate();
 
 	return 0;
+}
+
+//------------------------------------------------------------------------------
+void parseCommandline(int argc, char** argv) {
+	if (argc != 4) {
+		cout << "Usage: visualizer <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
+		exit(0);
+	}
+	// argument 0: executable name
+	// argument 1: <path-to-world.urdf>
+	world_file = string(argv[1]);
+	// argument 2: <path-to-robot.urdf>
+	robot_file = string(argv[2]);
+	// argument 3: <robot-name>
+	robot_name = string(argv[3]);
 }
 
 //------------------------------------------------------------------------------
