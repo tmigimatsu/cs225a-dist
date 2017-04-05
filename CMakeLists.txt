@@ -49,6 +49,10 @@ elseif (CMAKE_SYSTEM_NAME MATCHES Linux)
 	set(JSONCPP_LIBRARY ${JSONCPP_LIBRARIES})
 endif ()
 
+# - eigen3
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
 set(CS225A_COMMON_LIBRARIES
 	${CHAI3D_LIBARIES}
 	${SAI2-COMMON_LIBRARIES}
