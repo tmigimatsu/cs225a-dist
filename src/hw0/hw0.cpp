@@ -40,7 +40,7 @@ int main() {
 	You can input your joint information and read sensor data C++ style "<<" or ">>". Make sure you only 
 	expect to read or are writing #D.O.F. number of values.
 	*/
-	robot->_q << 0.0, 0.0, 0.1; // Joint 1,2,3 Coordinates (radians, radians, meters)
+	robot->_q << 0, M_PI/3, 0.2; // Joint 1,2,3 Coordinates (radians, radians, meters)
 	robot->_dq << 0, 0, 0; // Joint 1,2,3 Velocities (radians/sec, radians/sec, meters/sec), not used here
 
 	/* 
@@ -67,10 +67,14 @@ int main() {
 	Eigen::Vector3d op_pos_task_pos_in_link = Eigen::Vector3d(0.0, 0.0, 0.0); 
 	
 	Eigen::MatrixXd op_pos_task_jacobian(3,dof); // Empty Jacobian Matrix sized to right size
-	
+	Eigen::VectorXd g(dof); // Empty Gravity Vector
+
 	robot->Jv(op_pos_task_jacobian,op_pos_task_link_name,op_pos_task_pos_in_link); // Read jacobian into op_pos_task_jacobian
 	cout << op_pos_task_jacobian << endl; // Print Jacobian
 	cout << robot->_M << endl; // Print Mass Matrix, you can index into this variable (and all 'Eigen' types)!
+
+	robot->gravityVector(g); // Fill in and print gravity vectory
+	cout << g << endl;
 
 	/* 
 	Retrieve multiple values of jacobian or M with a for loop of setting robot->_q's, 
