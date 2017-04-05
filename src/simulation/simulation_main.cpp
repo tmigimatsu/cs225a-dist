@@ -18,17 +18,16 @@ string world_file = "";
 string robot_file = "";
 string robot_name = "";
 
-// redis keys:
+// redis keys: 
+// NOTE: keys are formatted to be: key_preprend::<robot-name>::<KEY>
+const std::string key_preprend = "cs225a::robot::";
 // - read:
-// const std::string JOINT_ANGLES_DES_KEY  = "scl::robot::iiwaBot::sensors::q_des";
-const std::string JOINT_TORQUES_COMMANDED_KEY = "scl::robot::iiwaBot::actuators::fgc";
-const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "scl::robot::iiwaBot::actuators::fgc_interact";
+const std::string JOINT_TORQUES_COMMANDED_KEY = "::actuators::fgc";
+const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - write:
-const std::string JOINT_ANGLES_KEY  = "scl::robot::iiwaBot::sensors::q";
-const std::string JOINT_VELOCITIES_KEY = "scl::robot::iiwaBot::sensors::dq";
-const std::string SIM_TIMESTAMP_KEY = "scl::robot::iiwaBot::timestamp";
-// const std::string FGC_ENABLE_KEY  = "scl::robot::iiwaBot::fgc_command_enabled";
-// const std::string JOINT_TORQUES_KEY = "scl::robot::iiwaBot::sensors::fgc";
+const std::string JOINT_ANGLES_KEY  = "::sensors::q";
+const std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
+const std::string SIM_TIMESTAMP_KEY = "::timestamp";
 
 // function to parse command line arguments
 void parseCommandline(int argc, char** argv);
@@ -72,8 +71,8 @@ int main(int argc, char** argv) {
 		timer.waitForNextLoop();
 
 		// read torques from Redis
-		redis_client.getEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
-		redis_client.getEigenMatrixDerivedString(JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
+		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
 		sim->setJointTorques(robot_name, robot_torques+robot_torques_interact);
 
 		// update simulation by 1ms
@@ -85,10 +84,10 @@ int main(int argc, char** argv) {
 		robot->updateModel();
 		
 		// write joint kinematics to redis
-		redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
-		redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
+		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
 
-		redis_client.setCommandIs(SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
+		redis_client.setCommandIs(key_preprend+robot_name+SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
 
 	}
 	return 0;
