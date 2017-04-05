@@ -9,8 +9,8 @@
 
 using namespace std;
 
-const string world_file = "resources/world.urdf";
-const string robot_file = "resources/RRPbot.urdf";
+const string world_file = "resources/hw0/world.urdf";
+const string robot_file = "resources/hw0/RRPbot.urdf";
 const string robot_name = "RRPbot";
 
 	//Eigen::Vector3d initial_position;
