@@ -18,8 +18,8 @@
 
 using namespace std;
 
-const string world_file = "../hw0/resources/world.urdf";
-const string robot_file = "../hw0/resources/RRPbot.urdf";
+const string world_file = "resources/world.urdf";
+const string robot_file = "resources/RRPbot.urdf";
 const string robot_name = "RRPbot";
 const string camera_name = "camera_fixed";
 
