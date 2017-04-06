@@ -44,12 +44,17 @@ void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods);
 // callback when a mouse button is pressed
 void mouseClick(GLFWwindow* window, int button, int action, int mods);
 
+// callback when user scrolls
+void mouseScroll(GLFWwindow* window, double xoffset, double yoffset);
+
 // flags for scene camera movement
 bool fTransXp = false;
 bool fTransXn = false;
 bool fTransYp = false;
 bool fTransYn = false;
 bool fRotPanTilt = false;
+bool fZoom = false;
+double zoomSpeed = 0.0;
 bool fRobotLinkSelect = false;
 
 int main(int argc, char** argv) {
@@ -108,6 +113,7 @@ int main(int argc, char** argv) {
     // set callbacks
 	glfwSetKeyCallback(window, keySelect);
 	glfwSetMouseButtonCallback(window, mouseClick);
+	glfwSetScrollCallback(window, mouseScroll);
 
 	// cache and temp variables
 	double last_cursorx, last_cursory;
@@ -181,7 +187,16 @@ int main(int argc, char** argv) {
 			Eigen::Matrix3d m_tilt; m_tilt = Eigen::AngleAxisd(azimuth, -cam_roll_axis);
 			camera_pos = camera_lookat + m_tilt*(camera_pos - camera_lookat);
 			Eigen::Matrix3d m_pan; m_pan = Eigen::AngleAxisd(compass, -cam_up_axis);
-			camera_pos = camera_lookat + m_pan*(camera_pos - camera_lookat);
+			// camera_pos = camera_lookat + m_pan*(camera_pos - camera_lookat);
+			// TODO: the above doesn't work as intended because Chai treats the lookat
+			// vector as a direction vector in the local frame, rather than as a lookat point
+			camera_pos = m_pan*(camera_pos);
+			camera_lookat = m_pan*(camera_lookat);
+			// TODO: the above fix is a HUGE hack. Think about improving this.
+	    }
+	    if (fZoom) {
+			camera_pos = camera_pos + 0.04*camera_lookat*zoomSpeed;
+			fZoom = false;
 	    }
 	    graphics->setCameraPose(camera_name, camera_pos, cam_up_axis, camera_lookat);
 	    glfwGetCursorPos(window, &last_cursorx, &last_cursory);
@@ -303,3 +318,8 @@ void mouseClick(GLFWwindow* window, int button, int action, int mods) {
 	}
 }
 
+//------------------------------------------------------------------------------
+void mouseScroll(GLFWwindow* window, double xoffset, double yoffset) {
+	fZoom = true;
+	zoomSpeed = yoffset;
+}
