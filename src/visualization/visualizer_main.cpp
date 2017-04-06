@@ -181,7 +181,12 @@ int main(int argc, char** argv) {
 			Eigen::Matrix3d m_tilt; m_tilt = Eigen::AngleAxisd(azimuth, -cam_roll_axis);
 			camera_pos = camera_lookat + m_tilt*(camera_pos - camera_lookat);
 			Eigen::Matrix3d m_pan; m_pan = Eigen::AngleAxisd(compass, -cam_up_axis);
-			camera_pos = camera_lookat + m_pan*(camera_pos - camera_lookat);
+			// camera_pos = camera_lookat + m_pan*(camera_pos - camera_lookat);
+			// TODO: the above doesn't work as intended because Chai treats the lookat
+			// vector as a direction vector in the local frame, rather than as a lookat point
+			camera_pos = m_pan*(camera_pos);
+			camera_lookat = m_pan*(camera_lookat);
+			// TODO: the above fix is a HUGE hack. Think about improving this.
 	    }
 	    graphics->setCameraPose(camera_name, camera_pos, cam_up_axis, camera_lookat);
 	    glfwGetCursorPos(window, &last_cursorx, &last_cursory);
