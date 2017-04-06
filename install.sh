@@ -5,7 +5,7 @@ set -e
 # ---------------------------------------
 
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
-	sudo apt install cmake libeigen3-dev libtinyxml2-dev libjsoncpp-dev libhiredis-dev libglfw3-dev xorg-dev freeglut3-dev libasound2-dev libusb-1.0-0-dev redis-server
+	sudo apt-get install curl cmake libeigen3-dev libtinyxml2-dev libjsoncpp-dev libhiredis-dev libglfw3-dev xorg-dev freeglut3-dev libasound2-dev libusb-1.0-0-dev redis-server
 elif [[ "$OSTYPE" == "darwin"* ]]; then
 	brew install cmake eigen redis hiredis tinyxml2 jsoncpp glfw3
 fi
