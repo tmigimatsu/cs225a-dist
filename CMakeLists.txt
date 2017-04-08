@@ -1,7 +1,7 @@
 
 cmake_minimum_required (VERSION 2.8.12)
 project (CS225A)
-SET(CMAKE_CXX_FLAGS "-std=c++11")
+SET(CMAKE_CXX_FLAGS "-std=c++11 -I/usr/include -I/usr/local/include")
 
 # set common source
 set (CS225A_COMMON_SOURCE
