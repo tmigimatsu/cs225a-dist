@@ -5,26 +5,50 @@
 #include <iostream>
 #include <string>
 
+#include <signal.h>
+static volatile bool runloop = true;
+void stop(int) { runloop = false; }
+
 using namespace std;
 
 // Location of URDF files specifying world and robot information
-const string world_file = "resources/hw0/world.urdf";
-const string robot_file = "resources/hw0/RRPbot.urdf";
-const string robot_name = "RRPbot";
+static string world_file = "";
+static string robot_file = "";
+static string robot_name = "";
 
-// Redis is just a key value store, publish/subscribe is also possible
-// The visualizer and simulator will have keys like "cs225a::robot::{ROBOTNAME}::sensors::q"
-// You can hardcode the robot name in like below or read them in from cli
-// redis keys:
+unsigned long long controller_counter = 0;
+
+// Redis keys:
 // - write:
-const std::string JOINT_ANGLES_KEY  = "cs225a::robot::RRPbot::sensors::q";
-const std::string JOINT_VELOCITIES_KEY = "cs225a::robot::RRPbot::sensors::dq";
+static std::string JOINT_TORQUES_COMMANDED_KEY = "";
 
-int main() {
+// - read:
+static std::string JOINT_ANGLES_KEY  = "";
+static std::string JOINT_VELOCITIES_KEY = "";
+static std::string JOINT_KP_KEY = "";
+static std::string JOINT_KV_KEY = "";
+
+// -debug:
+static std::string JOINT_TASK_Q_DESIRED_KEY = "";
+
+// Function to parse command line arguments
+void parseCommandline(int argc, char** argv);
+
+int main(int argc, char** argv) {
+
+	// Parse command line and set redis keys
+	parseCommandline(argc, argv);
+	JOINT_TORQUES_COMMANDED_KEY = "cs225a::robot::" + robot_name + "::actuators::fgc";
+	JOINT_ANGLES_KEY            = "cs225a::robot::" + robot_name + "::sensors::q";
+	JOINT_VELOCITIES_KEY        = "cs225a::robot::" + robot_name + "::sensors::dq";
+	JOINT_KP_KEY                = "cs225a::robot::" + robot_name + "::tasks::joint_kp";
+	JOINT_KV_KEY                = "cs225a::robot::" + robot_name + "::tasks::joint_kv";
+	JOINT_TASK_Q_DESIRED_KEY    = "cs225a::robot::" + robot_name + "::tasks::q_desired";
+
 	cout << "Loading URDF world model file: " << world_file << endl;
 
+	// Start redis client
 	// Make sure redis-server is running at localhost with default port 6379
-	// start redis client
 	HiredisServerInfo info;
 	info.hostname_ = "127.0.0.1";
 	info.port_ = 6379;
@@ -32,64 +56,90 @@ int main() {
 	auto redis_client = RedisClient();
 	redis_client.serverIs(info);
 
-	// load robots
+	// Load robot
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
-
-	/*
-	These are mathematical vectors from the library Eigen, you can read up on the documentation online.
-	You can input your joint information and read sensor data C++ style "<<" or ">>". Make sure you only 
-	expect to read or are writing #D.O.F. number of values.
-	*/
-	robot->_q << 0, M_PI/3, 0.2; // Joint 1,2,3 Coordinates (radians, radians, meters)
-	robot->_dq << 0, 0, 0; // Joint 1,2,3 Velocities (radians/sec, radians/sec, meters/sec), not used here
-
-	/* 
-	Here we use our redis set method to serialize an 'Eigen' vector into a specific Redis Key
-	Changing set to get populates the 'Eigen' vector given
-	This key is then read by the physics integrator or visualizer to update the system
-	*/
-	redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY,robot->_q);
-	redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
-
-	/*
-	Update model calculates and updates robot kinematics model information 
-	(calculate current jacobian, mass matrix, etc..)
-	Values taken from robot-> will be updated to currently set _q values
-	*/
 	robot->updateModel();
+	const int dof = robot->dof();
 
-	int dof = robot->dof();
+	// Initialize control variables for joint space control
+	Eigen::VectorXd command_torques = Eigen::VectorXd::Zero(dof);
+	Eigen::VectorXd joint_task_desired_position(dof);
 
-	// operational space
-	std::string op_pos_task_link_name = "link2"; // Link of the "Task" or "End Effector"
+	// Set the desired joint position and write the initial value to redis
+	joint_task_desired_position.setZero();
+	redis_client.setEigenMatrixDerivedString(JOINT_TASK_Q_DESIRED_KEY, joint_task_desired_position);
 
-	// Position of Task Frame in relation to Link Frame (When using custom E.E. attachment, etc..)
-	Eigen::Vector3d op_pos_task_pos_in_link = Eigen::Vector3d(0.0, 0.0, 0.0); 
-	
-	Eigen::MatrixXd op_pos_task_jacobian(3,dof); // Empty Jacobian Matrix sized to right size
-	Eigen::VectorXd g(dof); // Empty Gravity Vector
+	// Gains, set initial value in redis if they don't exist already
+	string redis_buf;
+	double joint_kp = 0;
+	double joint_kv = 0;
+	if (!redis_client.getCommandIs(JOINT_KP_KEY)) {
+		redis_buf = to_string(joint_kp);
+		redis_client.setCommandIs(JOINT_KP_KEY, redis_buf);
+	}
+	if (!redis_client.getCommandIs(JOINT_KV_KEY)) {
+		redis_buf = to_string(joint_kv);
+		redis_client.setCommandIs(JOINT_KV_KEY, redis_buf);
+	}
 
-	robot->Jv(op_pos_task_jacobian,op_pos_task_link_name,op_pos_task_pos_in_link); // Read jacobian into op_pos_task_jacobian
-	cout << op_pos_task_jacobian << endl; // Print Jacobian
-	cout << robot->_M << endl; // Print Mass Matrix, you can index into this variable (and all 'Eigen' types)!
+	// Create a loop timer
+	double control_freq = 1000;
+	LoopTimer timer;
+	timer.setLoopFrequency(control_freq);   // 1 KHz
+	// timer.setThreadHighPriority();  // make timing more accurate. requires running executable as sudo.
+	timer.setCtrlCHandler(stop);    // exit while loop on ctrl-c
+	timer.initializeTimer(1000000); // 1 ms pause before starting loop
 
-	robot->gravityVector(g); // Fill in and print gravity vectory
-	cout << g << endl;
+	// While window is open:
+	while (runloop) {
 
-	/* 
-	Retrieve multiple values of jacobian or M with a for loop of setting robot->_q's, 
-	setting redis keys for display update if needed and don't forget robot->updateModel()! 
-	We'll have a logger for you later to dump redis values at whatever rate you choose
-	*/
+		// Wait for next scheduled loop (controller must run at precise rate)
+		timer.waitForNextLoop();
 
-	// This function retrives absolute position of Task Frame in Base Frame
-	//Eigen::Vector3d initial_position;
-	//robot->position(initial_position,op_pos_task_link_name,op_pos_task_pos_in_link);
+		// Read from Redis current sensor values
+		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
+		redis_client.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
 
-	// Wait for user input before quit
-	int wait;
-	cin >> wait;
+		// Update the model 20 times slower (for computational speed)
+		if (controller_counter % 20 == 0) {
+			robot->updateModel();
+		}
 
-    return 0;
+		//----- Joint space controller
+		// Get the Q Desired from Redis (can be changed on the fly in Redis)
+		redis_client.getEigenMatrixDerivedString(JOINT_TASK_Q_DESIRED_KEY, joint_task_desired_position);
+
+		// Read in KP and KV from Redis (can be changed on the fly in Redis)
+		redis_client.getCommandIs(JOINT_KP_KEY, redis_buf);
+		joint_kp = stoi(redis_buf);
+		redis_client.getCommandIs(JOINT_KV_KEY, redis_buf);
+		joint_kv = stoi(redis_buf);
+
+		//------ Final torques
+		command_torques.setZero();
+		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+
+		controller_counter++;
+	}
+
+	command_torques.setZero();
+	redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
+
+	return 0;
 }
 
+
+//------------------------------------------------------------------------------
+void parseCommandline(int argc, char** argv) {
+	if (argc != 4) {
+		cout << "Usage: hw1 <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
+		exit(0);
+	}
+	// argument 0: executable name
+	// argument 1: <path-to-world.urdf>
+	world_file = string(argv[1]);
+	// argument 2: <path-to-robot.urdf>
+	robot_file = string(argv[2]);
+	// argument 3: <robot-name>
+	robot_name = string(argv[3]);
+}
