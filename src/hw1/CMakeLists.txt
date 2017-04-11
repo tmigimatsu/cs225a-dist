@@ -1,5 +1,6 @@
 # create an executable
 ADD_EXECUTABLE (hw1 hw1.cpp)
+SET(CMAKE_CXX_FLAGS "-Wno-ignored-attributes -Wno-deprecated-declarations")
 
 # and link the library against the executable
 TARGET_LINK_LIBRARIES (hw1
