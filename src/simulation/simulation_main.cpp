@@ -64,8 +64,8 @@ int main(int argc, char** argv) {
 	timer.initializeTimer(1000000); // 1 ms pause before starting loop
 
 
-	Eigen::VectorXd robot_torques(robot->dof());
-	Eigen::VectorXd robot_torques_interact(robot->dof());
+	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(robot->dof());
+	Eigen::VectorXd robot_torques_interact = Eigen::VectorXd::Zero(robot->dof());
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
