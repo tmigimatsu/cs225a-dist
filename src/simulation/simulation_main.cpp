@@ -61,11 +61,13 @@ int main(int argc, char** argv) {
 	timer.setLoopFrequency(sim_freq);   // 10 KHz
 	// timer.setThreadHighPriority();  // make timing more accurate. requires running executable as sudo.
 	timer.setCtrlCHandler(sighandler);    // exit while loop on ctrl-c
-	timer.initializeTimer(1000000); // 1 ms pause before starting loop
+	timer.initializeTimer(10000000); // 10 ms pause before starting loop
 
 
 	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(robot->dof());
 	Eigen::VectorXd robot_torques_interact = Eigen::VectorXd::Zero(robot->dof());
+	redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
+	redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
