@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 
 	// create a loop timer
-	double sim_freq = 1000;  // set the simulation frequency. Ideally 10kHz
+	double sim_freq = 7500;  // set the simulation frequency. Ideally 10kHz
 	LoopTimer timer;
 	timer.setLoopFrequency(sim_freq);   // 10 KHz
 	// timer.setThreadHighPriority();  // make timing more accurate. requires running executable as sudo.
