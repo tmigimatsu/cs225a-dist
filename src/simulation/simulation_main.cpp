@@ -14,20 +14,23 @@ void sighandler(int sig)
 
 using namespace std;
 
-string world_file = "";
-string robot_file = "";
-string robot_name = "";
+static string world_file = "";
+static string robot_file = "";
+static string robot_name = "";
 
 // redis keys: 
-// NOTE: keys are formatted to be: key_preprend::<robot-name>::<KEY>
-const std::string key_preprend = "cs225a::robot::";
+// NOTE: keys are formatted to be: key_prefix::<robot-name>::<KEY>
+static const std::string key_prefix = "cs225a::robot::";
 // - read:
-const std::string JOINT_TORQUES_COMMANDED_KEY = "::actuators::fgc";
-const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
+static std::string JOINT_TORQUES_COMMANDED_KEY             = "::actuators::fgc";
+static std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - write:
-const std::string JOINT_ANGLES_KEY  = "::sensors::q";
-const std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
-const std::string SIM_TIMESTAMP_KEY = "::timestamp";
+static std::string JOINT_ANGLES_KEY     = "::sensors::q";
+static std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
+static std::string SIM_TIMESTAMP_KEY    = "::timestamp";
+
+double SIM_FREQ = 10000;  // set the simulation frequency. Ideally 10kHz
+double TIMER_FREQ = 1000; // set 
 
 // function to parse command line arguments
 void parseCommandline(int argc, char** argv);
@@ -56,40 +59,46 @@ int main(int argc, char** argv) {
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 
 	// create a loop timer
-	double sim_freq = 7500;  // set the simulation frequency. Ideally 10kHz
 	LoopTimer timer;
-	timer.setLoopFrequency(sim_freq);   // 10 KHz
+	timer.setLoopFrequency(SIM_FREQ);   // 10 KHz
 	// timer.setThreadHighPriority();  // make timing more accurate. requires running executable as sudo.
 	timer.setCtrlCHandler(sighandler);    // exit while loop on ctrl-c
-	timer.initializeTimer(10000000); // 10 ms pause before starting loop
+	timer.initializeTimer(10 * 1e6); // 10 ms pause before starting loop
 
 
 	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(robot->dof());
 	Eigen::VectorXd robot_torques_interact = Eigen::VectorXd::Zero(robot->dof());
-	redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
-	redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
+	redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
+	redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+
+	double sensor_write_freq = 1000;
+	double time_sensor_last = timer.elapsedTime();
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
 
 		// read torques from Redis
-		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_TORQUES_COMMANDED_KEY, robot_torques);
-		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
-		sim->setJointTorques(robot_name, robot_torques+robot_torques_interact);
+		redis_client.getEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+		redis_client.getEigenMatrixDerivedString(JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
+		sim->setJointTorques(robot_name, robot_torques + robot_torques_interact);
 
 		// update simulation by 1ms
-		sim->integrate(1/sim_freq);
+		sim->integrate(1/10.0/SIM_FREQ);
 
 		// update kinematic models
 		sim->getJointPositions(robot_name, robot->_q);
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateModel();
 		
-		// write joint kinematics to redis
-		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
-		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
+		// double time_sensor = timer.elapsedTime();
+		// if (time_sensor - time_sensor_last >= 1/sensor_write_freq) {
+			// write joint kinematics to redis
+			redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
+			redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
 
-		redis_client.setCommandIs(key_preprend+robot_name+SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
+			redis_client.setCommandIs(SIM_TIMESTAMP_KEY, std::to_string(timer.elapsedSimTime()));
+			// time_sensor_last = time_sensor;
+		// }
 
 	}
 	return 0;
@@ -108,4 +117,10 @@ void parseCommandline(int argc, char** argv) {
 	robot_file = string(argv[2]);
 	// argument 3: <robot-name>
 	robot_name = string(argv[3]);
+
+	JOINT_TORQUES_COMMANDED_KEY             = key_prefix + robot_name + JOINT_TORQUES_COMMANDED_KEY;
+	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = key_prefix + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
+	JOINT_ANGLES_KEY                        = key_prefix + robot_name + JOINT_ANGLES_KEY;
+	JOINT_VELOCITIES_KEY                    = key_prefix + robot_name + JOINT_VELOCITIES_KEY;
+	SIM_TIMESTAMP_KEY                       = key_prefix + robot_name + SIM_TIMESTAMP_KEY;
 }
