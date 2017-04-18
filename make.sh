@@ -58,6 +58,7 @@ Usage: sh run.sh <controller-executable> <path-to-world.urdf> <path-to-robot.urd
 EOM
 else
 	trap 'kill %1; kill %2' SIGINT
+	trap 'kill %1; kill %2' EXIT
 	./simulator \$2 \$3 \$4 > simulator.log & ./visualizer \$2 \$3 \$4 > visualizer.log & ./"\$@"
 	# ./visualizer \$2 \$3 \$4 & ./simulator \$2 \$3 \$4 & ./"\$@"
 fi
