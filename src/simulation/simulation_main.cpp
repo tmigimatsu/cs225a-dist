@@ -56,16 +56,18 @@ int main(int argc, char** argv) {
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 
 	// create a loop timer
-	double sim_freq = 1000;  // set the simulation frequency. Ideally 10kHz
+	double sim_freq = 5000;  // set the simulation frequency. Ideally 10kHz
 	LoopTimer timer;
 	timer.setLoopFrequency(sim_freq);   // 10 KHz
 	// timer.setThreadHighPriority();  // make timing more accurate. requires running executable as sudo.
 	timer.setCtrlCHandler(sighandler);    // exit while loop on ctrl-c
-	timer.initializeTimer(1000000); // 1 ms pause before starting loop
+	timer.initializeTimer(1e7); // 10 ms pause before starting loop
 
 
 	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(robot->dof());
 	Eigen::VectorXd robot_torques_interact = Eigen::VectorXd::Zero(robot->dof());
+	redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
+	redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
 	while (runloop) {
 		// wait for next scheduled loop
 		timer.waitForNextLoop();
@@ -87,7 +89,7 @@ int main(int argc, char** argv) {
 		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
 		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
 
-		redis_client.setCommandIs(key_preprend+robot_name+SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedTime()));
+		redis_client.setCommandIs(key_preprend+robot_name+SIM_TIMESTAMP_KEY,std::to_string(timer.elapsedSimTime()));
 
 	}
 	return 0;

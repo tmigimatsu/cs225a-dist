@@ -148,6 +148,10 @@ public:
         return update_counter_;
     }
 
+	double elapsedSimTime() {
+		return update_counter_ * (update_interval_ * 1.0e-9);
+	}
+
     // /** \brief Set the thread to a priority of -19. Priority range is -20 (highest) to 19 (lowest) */
     // static void setThreadHighPriority(){
     //     pid_t pid = getpid();
