@@ -2,7 +2,7 @@ set -e
 
 # Update sai2-common
 cd sai2-common
-git pull
+git pull origin master
 mkdir -p build_rel
 cd build_rel
 cmake ..
