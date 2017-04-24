@@ -36,6 +36,15 @@ if [ -f "hw2" ]; then
 	fi
 	cd ../..
 fi
+if [ -f "hw3" ]; then
+	cd resources/hw2
+	if [ ! -d "kuka_iiwa_graphics" ]; then
+		curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/kuka_iiwa_graphics.zip -o kuka_iiwa_graphics.zip
+		unzip kuka_iiwa_graphics.zip
+		rm kuka_iiwa_graphics.zip
+	fi
+	cd ../..
+fi
 cd ..
 
 # Insert helper scripts into bin directory
