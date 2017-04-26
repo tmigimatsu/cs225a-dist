@@ -29,6 +29,8 @@ static std::string JOINT_VELOCITIES_KEY = "";
 static std::string TIMESTAMP_KEY = "";
 static std::string KP_POSITION_KEY = "";
 static std::string KV_POSITION_KEY = "";
+static std::string KP_ORIENTATION_KEY = "";
+static std::string KV_ORIENTATION_KEY = "";
 static std::string KP_JOINT_KEY = "";
 static std::string KV_JOINT_KEY = "";
 static std::string KP_JOINT_INIT_KEY = "";
@@ -47,6 +49,8 @@ int main(int argc, char** argv) {
 	TIMESTAMP_KEY               = "cs225a::robot::" + robot_name + "::timestamp";
 	KP_POSITION_KEY             = "cs225a::robot::" + robot_name + "::tasks::kp_pos";
 	KV_POSITION_KEY             = "cs225a::robot::" + robot_name + "::tasks::kv_pos";
+	KP_ORIENTATION_KEY          = "cs225a::robot::" + robot_name + "::tasks::kp_ori";
+	KV_ORIENTATION_KEY          = "cs225a::robot::" + robot_name + "::tasks::kv_ori";
 	KP_JOINT_KEY                = "cs225a::robot::" + robot_name + "::tasks::kp_joint";
 	KV_JOINT_KEY                = "cs225a::robot::" + robot_name + "::tasks::kv_joint";
 	KP_JOINT_INIT_KEY           = "cs225a::robot::" + robot_name + "::tasks::kp_joint_init";
@@ -69,7 +73,6 @@ int main(int argc, char** argv) {
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 	robot->updateModel();
 	const int dof = robot->dof();
-
 	// Create a loop timer
 	const double control_freq = 1000;
 	LoopTimer timer;
@@ -87,7 +90,7 @@ int main(int argc, char** argv) {
 
 	// Set gains in Redis if not initialized
 	string redis_buf;
-	double kp_joint_init = 400, kv_joint_init = 40;
+	double kp_joint_init = 30, kv_joint_init = 10;
 	if (!redis_client.getCommandIs(KP_JOINT_INIT_KEY)) {
 		redis_buf = to_string(kp_joint_init);
 		redis_client.setCommandIs(KP_JOINT_INIT_KEY, redis_buf);
@@ -123,6 +126,12 @@ int main(int argc, char** argv) {
 		// Update the model
 		robot->updateModel();
 
+		// Read in KP and KV from Redis (can be changed on the fly in Redis)
+		redis_client.getCommandIs(KP_JOINT_INIT_KEY, redis_buf);
+		kp_joint_init = stoi(redis_buf);
+		redis_client.getCommandIs(KV_JOINT_INIT_KEY, redis_buf);
+		kv_joint_init = stoi(redis_buf);
+
 		// Break if the robot has converged to q_initial
 		q_err = robot->_q - q_initial;
 		if (q_err.norm() < TOLERANCE_Q_INIT && robot->_dq.norm() < TOLERANCE_DQ_INIT) {
@@ -147,8 +156,9 @@ int main(int argc, char** argv) {
  	 */
 
 	// Set gains in Redis if not initialized
-	double kp_pos   = 0, kv_pos   = 0; // For positioning task
-	double kp_joint = 0, kv_joint = 0; // For nullspace damping
+	double kp_pos   = 0, kv_pos   = 0;
+	double kp_ori   = 0, kv_ori   = 0;
+	double kp_joint = 0, kv_joint = 0;
 	if (!redis_client.getCommandIs(KP_POSITION_KEY)) {
 		redis_buf = to_string(kp_pos);
 		redis_client.setCommandIs(KP_POSITION_KEY, redis_buf);
@@ -156,6 +166,14 @@ int main(int argc, char** argv) {
 	if (!redis_client.getCommandIs(KV_POSITION_KEY)) {
 		redis_buf = to_string(kv_pos);
 		redis_client.setCommandIs(KV_POSITION_KEY, redis_buf);
+	}
+	if (!redis_client.getCommandIs(KP_ORIENTATION_KEY)) {
+		redis_buf = to_string(kp_ori);
+		redis_client.setCommandIs(KP_ORIENTATION_KEY, redis_buf);
+	}
+	if (!redis_client.getCommandIs(KV_ORIENTATION_KEY)) {
+		redis_buf = to_string(kv_ori);
+		redis_client.setCommandIs(KV_ORIENTATION_KEY, redis_buf);
 	}
 	if (!redis_client.getCommandIs(KP_JOINT_KEY)) {
 		redis_buf = to_string(kp_joint);
@@ -190,12 +208,18 @@ int main(int argc, char** argv) {
 		kp_pos = stoi(redis_buf);
 		redis_client.getCommandIs(KV_POSITION_KEY, redis_buf);
 		kv_pos = stoi(redis_buf);
+		redis_client.getCommandIs(KP_ORIENTATION_KEY, redis_buf);
+		kp_ori = stoi(redis_buf);
+		redis_client.getCommandIs(KV_ORIENTATION_KEY, redis_buf);
+		kv_ori = stoi(redis_buf);
+		redis_client.getCommandIs(KP_JOINT_KEY, redis_buf);
+		kp_joint = stoi(redis_buf);
 		redis_client.getCommandIs(KV_JOINT_KEY, redis_buf);
 		kv_joint = stoi(redis_buf);
 
 		//------ Compute controller torques
 		command_torques.setZero();
-
+	
 		//------ Send torques
 		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 
@@ -212,7 +236,7 @@ int main(int argc, char** argv) {
 //------------------------------------------------------------------------------
 void parseCommandline(int argc, char** argv) {
 	if (argc != 4) {
-		cout << "Usage: hw3 <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
+		cout << "Usage: hw2 <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
 		exit(0);
 	}
 	// argument 0: executable name
