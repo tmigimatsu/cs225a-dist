@@ -1,7 +1,9 @@
 # cs225a
 Repository for class resources: CS225a experimental robotics
 
-## Automatic Installation Instructions (for Ubuntu and Mac only)
+## Local Installation
+
+### Automatic Installation Instructions (for Ubuntu and Mac only)
 1. If you have a Mac, install Brew (https://brew.sh/). If you have Ubuntu, install git (sudo apt install git)
 
 2. Clone this repository
@@ -18,7 +20,7 @@ Repository for class resources: CS225a experimental robotics
 
    ```sh make.sh```
 
-## Manual Installation Instructions (for any Linux distro or Mac)
+### Manual Installation Instructions (for any Linux distro or Mac)
 1. Install Brew for Mac (https://brew.sh/) or have Ubuntu installed or any other distro with the following packages. Also install git (sudo apt-get install git). Windows will have to dualboot ubuntu or install a VM.
 
 2. Install Cmake
@@ -126,15 +128,27 @@ Repository for class resources: CS225a experimental robotics
     sh make.sh
     ```
 
-## Post-Installation
+## Linking to an external installation
 
-1. Inside bin, you will find visualizer, simulator, and hw0
-   ```
-   ./hw0 &
-   ./visualizer &
-   ```
-   Note this opens up the applications in the background, use "jobs" to see currently running jobs and "fg" or "bg" to foreground next job or background next job
-   
-1.5 You can also run the script inside the bin folder "run_hw0.sh" to run hw0. Ctrl-c on the shell to quit.
-   
-2. Read the source code of hw0 inside src/hw0/hw0.cpp and the URDF file src/RRPbot.urdf and src/world.urdf to understand what is happening inside the robot code and how the simple robot is described both kinematically and graphically.
+If you already set up cs225a-dist elsewhere, you can add the SAI2 simulation library to this repo as symlinks.
+
+```
+EXTERNAL_CS225A_DIST="/absolute/path/to/your/other/cs225a-dist/repo"
+ln -s "${EXTERNAL_CS225A_DIST}/sai2-simulation" ./
+```
+
+You will still need to clone the sai2 common library and build:
+```
+git clone https://github.com/manips-sai/sai2-common.git
+cd sai2-common
+mkdir build
+cd build
+cmake ..
+make -j4
+```
+
+Then you can make the current project:
+```
+sh make.sh
+```
+

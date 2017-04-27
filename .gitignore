@@ -40,6 +40,10 @@ build_dbg
 # VScode Dir
 .vscode
 
+# Vim swapfiles
+*.swp
+*.swo
+
 # External libraries
 external
 sai2-common
