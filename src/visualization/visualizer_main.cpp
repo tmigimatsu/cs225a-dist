@@ -34,8 +34,12 @@ static string JOINT_VELOCITIES_KEY    = "::sensors::dq";
 static string EE_POSITION_KEY         = "::tasks::ee_pos";
 static string EE_POSITION_DESIRED_KEY = "::tasks::ee_pos_des";
 
-static string EE_POSITION_URDF_NAME         = EE_POSITION_KEY + "_traj";
-static string EE_POSITION_DESIRED_URDF_NAME = EE_POSITION_DESIRED_KEY + "_traj";
+// chai3d graphics names
+// - created inside visualizer_main.cpp
+static string EE_TRAJECTORY_CHAI_NAME         = EE_POSITION_KEY + "_traj";
+static string EE_DESIRED_TRAJECTORY_CHAI_NAME = EE_POSITION_DESIRED_KEY + "_traj";
+// - created inside world.urdf
+static string EE_POSITION_DESIRED_URDF_NAME   = EE_POSITION_DESIRED_KEY;
 
 // function to parse command line arguments
 static void parseCommandline(int argc, char** argv);
@@ -51,6 +55,9 @@ static void mouseClick(GLFWwindow* window, int button, int action, int mods);
 
 // callback when user scrolls
 static void mouseScroll(GLFWwindow* window, double xoffset, double yoffset);
+
+// find the graphics object with the specified name inside the chai3d world.
+static chai3d::cGenericObject *findObjectInWorld(chai3d::cWorld *world, const string &graphics_name);
 
 // flags for scene camera movement
 static bool fTransXp = false;
@@ -68,7 +75,54 @@ static const HiredisServerInfo kRedisServerInfo = {
 	{ 1, 500000 } // timeout = 1.5 seconds
 };
 
+/********** Begin Custom Visualizer Code **********/
+
+// Default number of points in trajectory buffer
 static const int kLenTrajectory = 100;
+
+// Minimum change between two points before updating trajectory
+static const double kTrajectoryMinUpdateDistance = 0.005;
+
+/**
+ * Create a trajectory graphics object with len_trajectory points to be inserted
+ * into chai3d::cWorld.
+ */
+static chai3d::cMultiSegment *createTrajectory(const string &graphics_name, const Eigen::Vector3d &starting_point) {
+	// Create graphics object
+	auto trajectory = new chai3d::cMultiSegment();
+	trajectory->m_name = graphics_name;
+
+	// Link together kLenTrajectory segments with vertices at starting_point
+	trajectory->newVertex(starting_point(0), starting_point(1), starting_point(2));
+	for (int i = 0; i < kLenTrajectory; i++) {
+		trajectory->newVertex(starting_point(0), starting_point(1), starting_point(2));
+		trajectory->newSegment(0, 0);
+	}
+
+	// Set trajectory color to white by default
+	trajectory->setLineColor(chai3d::cColorf(1.0, 1.0, 1.0, 1.0));
+	trajectory->setLineWidth(2.0);
+
+	return trajectory;
+}
+
+/**
+ * Add new point to trajectory and remove oldest point in trajectory buffer.
+ */
+static int updateTrajectoryPoint(chai3d::cMultiSegment *trajectory, int idx_traj, const Eigen::Vector3d &point) {
+	int idx_traj_next = (idx_traj + 1) % kLenTrajectory;
+	int idx_traj_next_2 = (idx_traj_next + 1) % kLenTrajectory;
+
+	// Insert new point at next point in trajectory cycle
+	trajectory->m_vertices->setLocalPos(idx_traj_next, point(0), point(1), point(2));
+	trajectory->m_segments->setVertices(idx_traj, idx_traj, idx_traj_next);
+
+	// Break the old connection to prevent a closed loop
+	trajectory->m_segments->setVertices(idx_traj_next, idx_traj_next_2, idx_traj_next_2);
+	return idx_traj_next;
+}
+
+/********** End Custom Visualizer Code **********/
 
 int main(int argc, char** argv) {
 	parseCommandline(argc, argv);
@@ -79,30 +133,10 @@ int main(int argc, char** argv) {
 	redis_client.serverIs(kRedisServerInfo);
 
 	// load graphics scene
-	// auto graphics_int = make_shared<Graphics::GraphicsInterface>(world_file, Graphics::chai, Graphics::urdf, true);
 	auto graphics_int = new Graphics::GraphicsInterface(world_file, Graphics::chai, Graphics::urdf, true);
 	Graphics::ChaiGraphics* graphics = dynamic_cast<Graphics::ChaiGraphics *>(graphics_int->_graphics_internal);
 	Eigen::Vector3d camera_pos, camera_lookat, camera_vertical;
 	graphics->getCameraPose(CAMERA_NAME, camera_pos, camera_vertical, camera_lookat);
-
-	auto x_traj = new chai3d::cMultiSegment();
-	auto x_des_traj = new chai3d::cMultiSegment();
-	x_traj->m_name = EE_POSITION_URDF_NAME;
-	x_des_traj->m_name = EE_POSITION_DESIRED_URDF_NAME;
-	x_traj->newVertex(0.0, 0.0, 0.0);
-	x_des_traj->newVertex(0.0, 0.0, 0.0);
-	for (int i = 0; i < kLenTrajectory; i++) {
-		x_traj->newVertex(0.0, 0.0, 0.0);
-		x_traj->newSegment(0, 0);
-		x_des_traj->newVertex(0.0, 0.0, 0.0);
-		x_des_traj->newSegment(0, 0);
-	}
-	x_traj->setLineColor(chai3d::cColorf(1.0, 1.0, 1.0, 1.0));
-	x_traj->setLineWidth(2.0);
-	x_des_traj->setLineColor(chai3d::cColorf(1.0, 0.0, 0.0, 1.0));
-	x_des_traj->setLineWidth(2.0);
-	graphics->_world->addChild(x_traj);
-	graphics->_world->addChild(x_des_traj);
 
 	// load robots
 	auto robot = make_shared<Model::ModelInterface>(robot_file, Model::rbdl, Model::urdf, false);
@@ -147,23 +181,29 @@ int main(int argc, char** argv) {
 	double last_cursorx, last_cursory;
 
 	Eigen::VectorXd interaction_torques;
-	Eigen::Vector3d x_des, x_des_prev, x, x_prev;
-	int idx_traj = 0, idx_traj_next = 1, idx_des_traj = 0, idx_des_traj_next = 1;
+
+	/********** Begin Custom Visualizer Code **********/
+
+	// Set up trajectory tracking variables
+	Eigen::Vector3d x, x_des;            // Current end effector pos
+	Eigen::Vector3d x_prev, x_des_prev;  // Previous end effector pos
+	int idx_traj = 0, idx_des_traj = 0;  // Current idx in trajectory buffer
 	redis_client.getEigenMatrixDerivedString(EE_POSITION_KEY, x);
-	for (unsigned int i = 0; i < graphics->_world->getNumChildren(); ++i) {
-		auto graphics_obj = graphics->_world->getChild(i);
-		cout << graphics_obj->m_name << typeid(graphics_obj).name() << typeid(x_des_traj).name() << endl;
-		if (graphics_obj->m_name == EE_POSITION_URDF_NAME) {
-			// auto x_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
-			x_traj->m_vertices->setLocalPos(0, x(0), x(1), x(2));
-		} else if (graphics_obj->m_name == EE_POSITION_DESIRED_URDF_NAME) {
-			chai3d::cMultiSegment *x_des_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
-			x_des_traj->m_vertices->setLocalPos(0, x(0), x(1), x(2));
-			cout << x_des_traj << typeid(graphics_obj).name() << endl;
-		}
-	}
+	redis_client.getEigenMatrixDerivedString(EE_POSITION_DESIRED_KEY, x_des);
 	x_prev = x;
 	x_des_prev = x_des;
+
+	// Create trajectory graphics objects and insert them into the chai3d world
+	auto x_traj = createTrajectory(EE_TRAJECTORY_CHAI_NAME, x);
+	auto x_des_traj = createTrajectory(EE_DESIRED_TRAJECTORY_CHAI_NAME, x_des);
+	x_des_traj->setLineColor(chai3d::cColorf(1.0, 0.0, 0.0, 1.0));  // Red for x_des
+	graphics->_world->addChild(x_traj);
+	graphics->_world->addChild(x_des_traj);
+
+	// Retrieve cs225a::<robot_name>::tasks::ee_pos_des sphere marker from world.urdf
+	auto x_des_marker = findObjectInWorld(graphics->_world, EE_POSITION_DESIRED_URDF_NAME);
+
+	/********** End Custom Visualizer Code **********/
 
     // while window is open:
     while (!glfwWindowShouldClose(window))
@@ -173,32 +213,25 @@ int main(int argc, char** argv) {
 		redis_client.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
 		redis_client.getEigenMatrixDerivedString(EE_POSITION_KEY, x);
 		redis_client.getEigenMatrixDerivedString(EE_POSITION_DESIRED_KEY, x_des);
-		for (unsigned int i = 0; i < graphics->_world->getNumChildren(); ++i) {
-			auto graphics_obj = graphics->_world->getChild(i);
-			if (graphics_obj->m_name == EE_POSITION_URDF_NAME) {
-				graphics_obj->setLocalPos(chai3d::cVector3d(x_des));
-			} else if (graphics_obj->m_name == EE_POSITION_URDF_NAME) {
-				if ((x - x_prev).norm() < 0.01) continue;
-				int idx_traj_next_2 = (idx_traj_next + 1) % kLenTrajectory;
-				auto x_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
-				x_traj->m_vertices->setLocalPos(idx_traj_next, x(0), x(1), x(2));
-				x_traj->m_segments->setVertices(idx_traj, idx_traj, idx_traj_next);
-				x_traj->m_segments->setVertices(idx_traj_next, idx_traj_next_2, idx_traj_next_2);
-				idx_traj = idx_traj_next;
-				idx_traj_next = idx_traj_next_2;
-				x_prev = x;
-			} else if (graphics_obj->m_name == EE_POSITION_DESIRED_URDF_NAME) {
-				if ((x_des - x_des_prev).norm() < 0.01) continue;
-				int idx_des_traj_next_2 = (idx_des_traj_next + 1) % kLenTrajectory;
-				auto x_des_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
-				x_des_traj->m_vertices->setLocalPos(idx_des_traj_next, x_des(0), x_des(1), x_des(2));
-				x_des_traj->m_segments->setVertices(idx_des_traj, idx_des_traj, idx_des_traj_next);
-				x_des_traj->m_segments->setVertices(idx_des_traj_next, idx_des_traj_next_2, idx_des_traj_next_2);
-				idx_des_traj = idx_des_traj_next;
-				idx_des_traj_next = idx_des_traj_next_2;
-				x_des_prev = x_des;
-			}
+
+		/********** Begin Custom Visualizer Code **********/
+
+		// Update end effector position trajectory
+		if ((x - x_prev).norm() > kTrajectoryMinUpdateDistance) {
+			idx_traj = updateTrajectoryPoint(x_traj, idx_traj, x);
+			x_prev = x;
 		}
+
+		// Update end effector desired position trajectory
+		if ((x_des - x_des_prev).norm() > kTrajectoryMinUpdateDistance) {
+			idx_des_traj = updateTrajectoryPoint(x_des_traj, idx_des_traj, x_des);
+			x_des_prev = x_des;
+		}
+
+		// Update end effector desired position marker
+		x_des_marker->setLocalPos(chai3d::cVector3d(x_des));
+
+		/********** End Custom Visualizer Code **********/
 
 		// update transformations
 		robot->updateModel();
@@ -332,7 +365,8 @@ void parseCommandline(int argc, char** argv) {
 	JOINT_VELOCITIES_KEY    = REDIS_KEY_PREFIX + robot_name + JOINT_VELOCITIES_KEY;
 	EE_POSITION_KEY         = REDIS_KEY_PREFIX + robot_name + EE_POSITION_KEY;
 	EE_POSITION_DESIRED_KEY = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_KEY;
-	EE_POSITION_URDF_NAME         = REDIS_KEY_PREFIX + robot_name + EE_POSITION_URDF_NAME;
+	EE_TRAJECTORY_CHAI_NAME         = REDIS_KEY_PREFIX + robot_name + EE_TRAJECTORY_CHAI_NAME;
+	EE_DESIRED_TRAJECTORY_CHAI_NAME = REDIS_KEY_PREFIX + robot_name + EE_DESIRED_TRAJECTORY_CHAI_NAME;
 	EE_POSITION_DESIRED_URDF_NAME = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_URDF_NAME;
 }
 
@@ -405,4 +439,15 @@ static void mouseClick(GLFWwindow* window, int button, int action, int mods) {
 static void mouseScroll(GLFWwindow* window, double xoffset, double yoffset) {
 	fZoom = true;
 	zoomSpeed = yoffset;
+}
+
+//------------------------------------------------------------------------------
+static chai3d::cGenericObject *findObjectInWorld(chai3d::cWorld *world, const string &graphics_name) {
+	for (unsigned int i = 0; i < world->getNumChildren(); ++i) {
+		auto graphics_obj = world->getChild(i);
+		if (graphics_obj->m_name == graphics_name) {
+			return graphics_obj;
+		}
+	}
+	return nullptr;
 }
