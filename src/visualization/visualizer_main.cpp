@@ -16,6 +16,8 @@
 #include <string>
 #include <cmath>
 
+#define ENABLE_TRAJECTORIES
+
 using namespace std;
 
 static string world_file = "";
@@ -31,15 +33,6 @@ static string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_intera
 // - read:
 static string JOINT_ANGLES_KEY        = "::sensors::q";
 static string JOINT_VELOCITIES_KEY    = "::sensors::dq";
-static string EE_POSITION_KEY         = "::tasks::ee_pos";
-static string EE_POSITION_DESIRED_KEY = "::tasks::ee_pos_des";
-
-// chai3d graphics names
-// - created inside visualizer_main.cpp
-static string EE_TRAJECTORY_CHAI_NAME         = EE_POSITION_KEY + "_traj";
-static string EE_DESIRED_TRAJECTORY_CHAI_NAME = EE_POSITION_DESIRED_KEY + "_traj";
-// - created inside world.urdf
-static string EE_POSITION_DESIRED_URDF_NAME   = EE_POSITION_DESIRED_KEY;
 
 // function to parse command line arguments
 static void parseCommandline(int argc, char** argv);
@@ -75,7 +68,19 @@ static const HiredisServerInfo kRedisServerInfo = {
 	{ 1, 500000 } // timeout = 1.5 seconds
 };
 
+#ifdef ENABLE_TRAJECTORIES
 /********** Begin Custom Visualizer Code **********/
+
+// Redis keys (read)
+static string EE_POSITION_KEY         = "::tasks::ee_pos";
+static string EE_POSITION_DESIRED_KEY = "::tasks::ee_pos_des";
+
+// Chai3d graphics names
+// - Created inside visualizer_main.cpp
+static string EE_TRAJECTORY_CHAI_NAME         = EE_POSITION_KEY + "_traj";
+static string EE_DESIRED_TRAJECTORY_CHAI_NAME = EE_POSITION_DESIRED_KEY + "_traj";
+// - Created inside world.urdf
+static string EE_POSITION_DESIRED_URDF_NAME   = EE_POSITION_DESIRED_KEY;
 
 // Default number of points in trajectory buffer
 static const int kLenTrajectory = 100;
@@ -123,6 +128,7 @@ static int updateTrajectoryPoint(chai3d::cMultiSegment *trajectory, int idx_traj
 }
 
 /********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 
 int main(int argc, char** argv) {
 	parseCommandline(argc, argv);
@@ -182,6 +188,7 @@ int main(int argc, char** argv) {
 
 	Eigen::VectorXd interaction_torques;
 
+#ifdef ENABLE_TRAJECTORIES
 	/********** Begin Custom Visualizer Code **********/
 
 	// Set up trajectory tracking variables
@@ -204,6 +211,7 @@ int main(int argc, char** argv) {
 	auto x_des_marker = findObjectInWorld(graphics->_world, EE_POSITION_DESIRED_URDF_NAME);
 
 	/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 
     // while window is open:
     while (!glfwWindowShouldClose(window))
@@ -211,10 +219,12 @@ int main(int argc, char** argv) {
 		// read from Redis
 		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
 		redis_client.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+
+#ifdef ENABLE_TRAJECTORIES
+		/********** Begin Custom Visualizer Code **********/
+
 		redis_client.getEigenMatrixDerivedString(EE_POSITION_KEY, x);
 		redis_client.getEigenMatrixDerivedString(EE_POSITION_DESIRED_KEY, x_des);
-
-		/********** Begin Custom Visualizer Code **********/
 
 		// Update end effector position trajectory
 		if ((x - x_prev).norm() > kTrajectoryMinUpdateDistance) {
@@ -229,9 +239,12 @@ int main(int argc, char** argv) {
 		}
 
 		// Update end effector desired position marker
-		x_des_marker->setLocalPos(chai3d::cVector3d(x_des));
+		if (x_des_marker != nullptr) {
+			x_des_marker->setLocalPos(chai3d::cVector3d(x_des));
+		}
 
 		/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 
 		// update transformations
 		robot->updateModel();
@@ -363,11 +376,18 @@ void parseCommandline(int argc, char** argv) {
 	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = REDIS_KEY_PREFIX + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
 	JOINT_ANGLES_KEY        = REDIS_KEY_PREFIX + robot_name + JOINT_ANGLES_KEY;
 	JOINT_VELOCITIES_KEY    = REDIS_KEY_PREFIX + robot_name + JOINT_VELOCITIES_KEY;
+
+#ifdef ENABLE_TRAJECTORIES
+	/********** Begin Custom Visualizer Code **********/
+
 	EE_POSITION_KEY         = REDIS_KEY_PREFIX + robot_name + EE_POSITION_KEY;
 	EE_POSITION_DESIRED_KEY = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_KEY;
 	EE_TRAJECTORY_CHAI_NAME         = REDIS_KEY_PREFIX + robot_name + EE_TRAJECTORY_CHAI_NAME;
 	EE_DESIRED_TRAJECTORY_CHAI_NAME = REDIS_KEY_PREFIX + robot_name + EE_DESIRED_TRAJECTORY_CHAI_NAME;
 	EE_POSITION_DESIRED_URDF_NAME = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_URDF_NAME;
+
+	/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 }
 
 //------------------------------------------------------------------------------
