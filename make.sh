@@ -17,31 +17,46 @@ make -j4
 cd ..
 
 # Download resource files
+mkdir -p resources
+cd resources
+if [ ! -d "puma_graphics" ]; then
+	curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/puma_graphics.zip -o puma_graphics.zip
+	unzip puma_graphics.zip
+	rm puma_graphics.zip
+fi
+if [ ! -d "kuka_iiwa_graphics" ]; then
+	curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/kuka_iiwa_graphics.zip -o kuka_iiwa_graphics.zip
+	unzip kuka_iiwa_graphics.zip
+	rm kuka_iiwa_graphics.zip
+fi
+cd ..
+
 cd bin
 if [ -f "hw1" ]; then
 	cd resources/hw1
-	if [ ! -d "puma_graphics" ]; then
-		curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/puma_graphics.zip -o puma_graphics.zip
-		unzip puma_graphics.zip
-		rm puma_graphics.zip
+	if [ ! -e "puma_graphics" ]; then
+		ln -s ../../../resources/puma_graphics .
 	fi
 	cd ../..
 fi
 if [ -f "hw2" ]; then
 	cd resources/hw2
-	if [ ! -d "kuka_iiwa_graphics" ]; then
-		curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/kuka_iiwa_graphics.zip -o kuka_iiwa_graphics.zip
-		unzip kuka_iiwa_graphics.zip
-		rm kuka_iiwa_graphics.zip
+	if [ ! -e "kuka_iiwa_graphics" ]; then
+		ln -s ../../../resources/kuka_iiwa_graphics .
 	fi
 	cd ../..
 fi
 if [ -f "hw3" ]; then
-	cd resources/hw2
-	if [ ! -d "kuka_iiwa_graphics" ]; then
-		curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/kuka_iiwa_graphics.zip -o kuka_iiwa_graphics.zip
-		unzip kuka_iiwa_graphics.zip
-		rm kuka_iiwa_graphics.zip
+	cd resources/hw3
+	if [ ! -e "kuka_iiwa_graphics" ]; then
+		ln -s ../../../resources/kuka_iiwa_graphics .
+	fi
+	cd ../..
+fi
+if [ -f "demo_project" ]; then
+	cd resources/demo_project
+	if [ ! -e "kuka_iiwa_graphics" ]; then
+		ln -s ../../../resources/kuka_iiwa_graphics .
 	fi
 	cd ../..
 fi

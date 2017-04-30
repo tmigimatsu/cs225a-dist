@@ -1,7 +1,7 @@
 
 cmake_minimum_required (VERSION 2.8.12)
 project (CS225A)
-SET(CMAKE_CXX_FLAGS "-std=c++11 -I/usr/include -I/usr/local/include")
+SET(CMAKE_CXX_FLAGS "-std=c++11 -I/usr/include -I/usr/local/include -Wno-ignored-attributes -Wno-deprecated-declarations")
 
 # set common source
 set (CS225A_COMMON_SOURCE
@@ -75,3 +75,4 @@ add_subdirectory(src/hw0)
 add_subdirectory(src/hw1)
 add_subdirectory(src/hw2)
 add_subdirectory(src/hw3)
+add_subdirectory(src/demo_project)
