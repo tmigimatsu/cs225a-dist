@@ -2,8 +2,6 @@
 
 #include <iostream>
 #include <fstream>
-#include <chrono>
-#include <thread>
 
 #include <signal.h>
 static volatile bool g_runloop = true;

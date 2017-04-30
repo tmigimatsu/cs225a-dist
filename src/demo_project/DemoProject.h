@@ -12,6 +12,7 @@
 
 // std includes
 #include <string>
+#include <thread>
 
 class DemoProject {
 
