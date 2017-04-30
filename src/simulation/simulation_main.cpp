@@ -19,8 +19,8 @@ static string robot_file = "";
 static string robot_name = "";
 
 // redis keys: 
-// NOTE: keys are formatted to be: key_prefix::<robot-name>::<KEY>
-static const std::string key_prefix = "cs225a::robot::";
+// NOTE: keys are formatted to be: REDIS_KEY_PREFIX::<robot-name>::<KEY>
+static const std::string REDIS_KEY_PREFIX = "cs225a::robot::";
 // - read:
 static std::string JOINT_TORQUES_COMMANDED_KEY             = "::actuators::fgc";
 static std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
@@ -35,7 +35,7 @@ static const double TIMER_FREQ = 1000; // set
 static const unsigned int NS_INITIAL_WAIT = 10 * 1e6; // 10ms pause before starting loop
 
 // function to parse command line arguments
-void parseCommandline(int argc, char** argv);
+static void parseCommandline(int argc, char** argv);
 
 int main(int argc, char** argv) {
 	parseCommandline(argc, argv);
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
 }
 
 //------------------------------------------------------------------------------
-void parseCommandline(int argc, char** argv) {
+static void parseCommandline(int argc, char** argv) {
 	if (argc != 4) {
 		cout << "Usage: simulator <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
 		exit(0);
@@ -122,9 +122,10 @@ void parseCommandline(int argc, char** argv) {
 	// argument 3: <robot-name>
 	robot_name = string(argv[3]);
 
-	JOINT_TORQUES_COMMANDED_KEY             = key_prefix + robot_name + JOINT_TORQUES_COMMANDED_KEY;
-	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = key_prefix + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
-	JOINT_ANGLES_KEY                        = key_prefix + robot_name + JOINT_ANGLES_KEY;
-	JOINT_VELOCITIES_KEY                    = key_prefix + robot_name + JOINT_VELOCITIES_KEY;
-	SIM_TIMESTAMP_KEY                       = key_prefix + robot_name + SIM_TIMESTAMP_KEY;
+	// Set up Redis keys
+	JOINT_TORQUES_COMMANDED_KEY = REDIS_KEY_PREFIX + robot_name + JOINT_TORQUES_COMMANDED_KEY;
+	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = REDIS_KEY_PREFIX + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
+	JOINT_ANGLES_KEY            = REDIS_KEY_PREFIX + robot_name + JOINT_ANGLES_KEY;
+	JOINT_VELOCITIES_KEY        = REDIS_KEY_PREFIX + robot_name + JOINT_VELOCITIES_KEY;
+	SIM_TIMESTAMP_KEY           = REDIS_KEY_PREFIX + robot_name + SIM_TIMESTAMP_KEY;
 }
