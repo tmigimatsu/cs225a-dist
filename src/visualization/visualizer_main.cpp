@@ -24,8 +24,8 @@ string robot_name = "";
 const string camera_name = "camera_fixed";
 
 // redis keys: 
-// NOTE: keys are formatted to be: key_preprend::<robot-name>::<KEY>
-const std::string key_preprend = "cs225a::robot::";
+// NOTE: keys are formatted to be: key_prepend::<robot-name>::<KEY>
+const std::string key_prepend = "cs225a::robot::";
 // - write:
 const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - read:
@@ -70,17 +70,37 @@ int main(int argc, char** argv) {
 	redis_client.serverIs(info);
 
 	// load graphics scene
+	// auto graphics_int = make_shared<Graphics::GraphicsInterface>(world_file, Graphics::chai, Graphics::urdf, true);
 	auto graphics_int = new Graphics::GraphicsInterface(world_file, Graphics::chai, Graphics::urdf, true);
 	Graphics::ChaiGraphics* graphics;
-	graphics = dynamic_cast<Graphics::ChaiGraphics*>(graphics_int->_graphics_internal);
+	graphics = dynamic_cast<Graphics::ChaiGraphics *>(graphics_int->_graphics_internal);
 	Eigen::Vector3d camera_pos, camera_lookat, camera_vertical;
 	graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
+	auto x_traj = new chai3d::cMultiSegment();
+	auto x_des_traj = new chai3d::cMultiSegment();
+	const int LEN_TRAJECTORY = 100;
+	x_traj->m_name = key_prepend + robot_name + "::tasks::ee_pos_traj";
+	x_des_traj->m_name = key_prepend + robot_name + "::tasks::ee_pos_des_traj";
+	x_traj->newVertex(0.0, 0.0, 0.0);
+	x_des_traj->newVertex(0.0, 0.0, 0.0);
+	for (int i = 0; i < LEN_TRAJECTORY; i++) {
+		x_traj->newVertex(0.0, 0.0, 0.0);
+		x_traj->newSegment(0, 0);
+		x_des_traj->newVertex(0.0, 0.0, 0.0);
+		x_des_traj->newSegment(0, 0);
+	}
+	x_traj->setLineColor(chai3d::cColorf(1.0, 1.0, 1.0, 1.0));
+	x_traj->setLineWidth(2.0);
+	x_des_traj->setLineColor(chai3d::cColorf(1.0, 0.0, 0.0, 1.0));
+	x_des_traj->setLineWidth(2.0);
+	graphics->_world->addChild(x_traj);
+	graphics->_world->addChild(x_des_traj);
 
 	// load robots
-	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
+	auto robot = make_shared<Model::ModelInterface>(robot_file, Model::rbdl, Model::urdf, false);
 
 	// create a UI widget to apply mouse forces to the robot
-	UIForceWidget force_widget(robot_name, robot, graphics);
+	UIForceWidget force_widget(robot_name, robot.get(), graphics);
 	force_widget.setEnable(false);
 
 	/*------- Set up visualization -------*/
@@ -118,13 +138,56 @@ int main(int argc, char** argv) {
 	// cache and temp variables
 	double last_cursorx, last_cursory;
 	Eigen::VectorXd interaction_torques;
+	Eigen::Vector3d x_des, x_des_prev, x, x_prev;
+	int idx_traj = 0, idx_traj_next = 1, idx_des_traj = 0, idx_des_traj_next = 1;
+	redis_client.getEigenMatrixDerivedString(key_prepend+robot_name+"::tasks::ee_pos", x);
+	for (unsigned int i = 0; i < graphics->_world->getNumChildren(); ++i) {
+		auto graphics_obj = graphics->_world->getChild(i);
+		if (graphics_obj->m_name == key_prepend+robot_name+"::tasks::ee_pos_traj") {
+			auto x_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
+			x_traj->m_vertices->setLocalPos(0, x(0), x(1), x(2));
+		} else if (graphics_obj->m_name == key_prepend+robot_name+"::tasks::ee_pos_des_traj") {
+			auto x_des_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
+			x_des_traj->m_vertices->setLocalPos(0, x(0), x(1), x(2));
+		}
+	}
+	x_prev = x;
+	x_des_prev = x_des;
 
     // while window is open:
     while (!glfwWindowShouldClose(window))
 	{
 		// read from Redis
-		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
-		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.getEigenMatrixDerivedString(key_prepend+robot_name+JOINT_ANGLES_KEY, robot->_q);
+		redis_client.getEigenMatrixDerivedString(key_prepend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.getEigenMatrixDerivedString(key_prepend+robot_name+"::tasks::ee_pos_des", x_des);
+		redis_client.getEigenMatrixDerivedString(key_prepend+robot_name+"::tasks::ee_pos", x);
+		for (unsigned int i = 0; i < graphics->_world->getNumChildren(); ++i) {
+			auto graphics_obj = graphics->_world->getChild(i);
+			if (graphics_obj->m_name == key_prepend+robot_name+"::tasks::ee_pos_des") {
+				graphics_obj->setLocalPos(chai3d::cVector3d(x_des));
+			} else if (graphics_obj->m_name == key_prepend+robot_name+"::tasks::ee_pos_traj") {
+				if ((x - x_prev).norm() < 0.01) continue;
+				int idx_traj_next_2 = (idx_traj_next + 1) % LEN_TRAJECTORY;
+				auto x_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
+				x_traj->m_vertices->setLocalPos(idx_traj_next, x(0), x(1), x(2));
+				x_traj->m_segments->setVertices(idx_traj, idx_traj, idx_traj_next);
+				x_traj->m_segments->setVertices(idx_traj_next, idx_traj_next_2, idx_traj_next_2);
+				idx_traj = idx_traj_next;
+				idx_traj_next = idx_traj_next_2;
+				x_prev = x;
+			} else if (graphics_obj->m_name == key_prepend+robot_name+"::tasks::ee_pos_des_traj") {
+				if ((x_des - x_des_prev).norm() < 0.01) continue;
+				int idx_des_traj_next_2 = (idx_des_traj_next + 1) % LEN_TRAJECTORY;
+				auto x_des_traj = dynamic_cast<chai3d::cMultiSegment *>(graphics_obj);
+				x_des_traj->m_vertices->setLocalPos(idx_des_traj_next, x_des(0), x_des(1), x_des(2));
+				x_des_traj->m_segments->setVertices(idx_des_traj, idx_des_traj, idx_des_traj_next);
+				x_des_traj->m_segments->setVertices(idx_des_traj_next, idx_des_traj_next_2, idx_des_traj_next_2);
+				idx_des_traj = idx_des_traj_next;
+				idx_des_traj_next = idx_des_traj_next_2;
+				x_des_prev = x_des;
+			}
+		}
 
 		// update transformations
 		robot->updateModel();
@@ -132,7 +195,7 @@ int main(int argc, char** argv) {
 		// update graphics. this automatically waits for the correct amount of time
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
-		graphics->updateGraphics(robot_name, robot);
+		graphics->updateGraphics(robot_name, robot.get());
 		graphics->render(camera_name, width, height);
 
 		// swap buffers
@@ -226,7 +289,7 @@ int main(int argc, char** argv) {
 		// get UI torques
 		force_widget.getUIJointTorques(interaction_torques);
 		//write to redis
-		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, interaction_torques);
+		redis_client.setEigenMatrixDerivedString(key_prepend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, interaction_torques);
 	}
 
     // destroy context

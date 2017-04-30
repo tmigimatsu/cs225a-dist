@@ -67,11 +67,11 @@ void DemoProject::updateModel() {
 
 DemoProject::controller_status_t DemoProject::computeJointSpaceControlTorques() {
 	/**
- 	 * JOINT SPACE CONTROL
- 	 * -------------------
- 	 * Controller to initialize robot to desired joint position.
- 	 * Uses kp = 400 and kv = 40 by default.
- 	 */
+	 * JOINT SPACE CONTROL
+	 * -------------------
+	 * Controller to initialize robot to desired joint position.
+	 * Uses kp = 400 and kv = 40 by default.
+	 */
 
 	// Break if the robot has converged to q_initial
 	q_err = robot->_q - q_des;
@@ -88,10 +88,10 @@ DemoProject::controller_status_t DemoProject::computeJointSpaceControlTorques() 
 
 DemoProject::controller_status_t DemoProject::computeOperationalSpaceControlTorques() {
 	/**
- 	 * OPERATIONAL SPACE CONTROL
- 	 * -------------------------
- 	 * Controller to implement for HW2
- 	 */
+	 * OPERATIONAL SPACE CONTROL
+	 * -------------------------
+	 * Controller to implement for HW2
+	 */
 
 	// PD position control with velocity saturation
 	x_err = x - x_des;
