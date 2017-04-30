@@ -89,7 +89,7 @@ class DemoProject {
 
 		const double TOLERANCE_Q_INIT = 0.1;
 		const double TOLERANCE_DQ_INIT = 0.1;
-		const double MAX_VELOCITY = 1.0;
+		const double MAX_VELOCITY = 0.5;
 
 		unsigned long long controller_counter = 0;
 		double t_curr;

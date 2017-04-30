@@ -29,8 +29,10 @@ static std::string JOINT_ANGLES_KEY     = "::sensors::q";
 static std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
 static std::string SIM_TIMESTAMP_KEY    = "::timestamp";
 
-double SIM_FREQ = 10000;  // set the simulation frequency. Ideally 10kHz
-double TIMER_FREQ = 1000; // set 
+static const double SENSOR_WRITE_FREQ = 1000;
+static const double SIM_FREQ = 10000;  // set the simulation frequency. Ideally 10kHz
+static const double TIMER_FREQ = 1000; // set 
+static const unsigned int NS_INITIAL_WAIT = 10 * 1e6; // 10ms pause before starting loop
 
 // function to parse command line arguments
 void parseCommandline(int argc, char** argv);
@@ -65,13 +67,15 @@ int main(int argc, char** argv) {
 	timer.setCtrlCHandler(sighandler);    // exit while loop on ctrl-c
 	timer.initializeTimer(10 * 1e6); // 10 ms pause before starting loop
 
-
 	Eigen::VectorXd robot_torques = Eigen::VectorXd::Zero(robot->dof());
 	Eigen::VectorXd robot_torques_interact = Eigen::VectorXd::Zero(robot->dof());
+	robot->_q.setZero();
+	robot->_dq.setZero();
 	redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
 	redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+	redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, robot_torques);
+	redis_client.setEigenMatrixDerivedString(JOINT_INTERACTION_TORQUES_COMMANDED_KEY, robot_torques_interact);
 
-	double sensor_write_freq = 1000;
 	double time_sensor_last = timer.elapsedTime();
 	while (runloop) {
 		// wait for next scheduled loop
@@ -83,22 +87,22 @@ int main(int argc, char** argv) {
 		sim->setJointTorques(robot_name, robot_torques + robot_torques_interact);
 
 		// update simulation by 1ms
-		sim->integrate(1/10.0/SIM_FREQ);
+		sim->integrate(1.0 / SIM_FREQ);
 
 		// update kinematic models
 		sim->getJointPositions(robot_name, robot->_q);
 		sim->getJointVelocities(robot_name, robot->_dq);
 		robot->updateModel();
 		
-		// double time_sensor = timer.elapsedTime();
-		// if (time_sensor - time_sensor_last >= 1/sensor_write_freq) {
+		double time_sensor = timer.elapsedTime();
+		if (time_sensor - time_sensor_last >= 1.0 / SENSOR_WRITE_FREQ) {
 			// write joint kinematics to redis
 			redis_client.setEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
 			redis_client.setEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
 
 			redis_client.setCommandIs(SIM_TIMESTAMP_KEY, std::to_string(timer.elapsedSimTime()));
-			// time_sensor_last = time_sensor;
-		// }
+			time_sensor_last = time_sensor;
+		}
 
 	}
 	return 0;
