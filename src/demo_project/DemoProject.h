@@ -4,7 +4,6 @@
 // cs225a includes
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
-#include <thread>
 
 // external includes
 #include <Eigen/Core>
