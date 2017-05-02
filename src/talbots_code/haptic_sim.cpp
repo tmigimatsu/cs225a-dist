@@ -19,7 +19,7 @@ Date: 4/18/17
 #include "timer/LoopTimer.h"
 #include "redis/RedisClient.h"
 
-#include "force_sensor/ForceSensorSim.h"
+#include "fullfolder/src/force_sensor/ForceSensorSim.h"
 
 #include <GLFW/glfw3.h> //must be loaded after loading opengl/glew as part of graphicsinterface
 
@@ -27,8 +27,8 @@ using namespace std;
 
 // const string world_fname = "resources/hw2/world_2_iiwa.urdf";
 // const string robot_fname = "../resources/kuka_iiwa/kuka_iiwa.urdf";
-const string world_fname = "resources/hw2/world_1_puma.urdf";
-const string robot_fname = "../resources/puma/puma.urdf";
+const string world_fname = "resources/talbots_code/world_1_puma.urdf";
+const string robot_fname = "resources/talbots_code/puma.urdf";
 const string robot_name = "Puma";
 
 // const string robot_name = "Kuka-IIWA";
@@ -93,7 +93,7 @@ int main (int argc, char** argv) {
 				180/180.0*M_PI,
 				90.0/180.0*M_PI,
 				100/180.0*M_PI,
-	// 			180/180.0*M_PI;
+				180/180.0*M_PI;
 	// robot->_q << 125.9/180.0*M_PI,
 	// 			39.2/180.0*M_PI,
 	// 			-49.2/180.0*M_PI,
@@ -230,6 +230,10 @@ void control(Model::ModelInterface* robot, Simulation::SimulationInterface* sim)
 	// Eigen::Vector3d sensed_force;
  //    Eigen::Vector3d sensed_moment;
 
+	ee_des_rotation << 1 , 0, 0,
+			    					0, 1, 0,
+			    					0, 0, 1;
+
 	while (fSimulationRunning) { //automatically set to false when simulation is quit
 		fTimerDidSleep = timer.waitForNextLoop();
 
@@ -251,11 +255,9 @@ void control(Model::ModelInterface* robot, Simulation::SimulationInterface* sim)
 				robot->J(J, ee_link_name, Eigen::Vector3d::Zero());
 				robot->Jw(Jw, ee_link_name);
 
-			    redis_client.getEigenMatrixDerivedString("x_pos", ee_des_pos);
-			    redis_client.getEigenMatrixDerivedString("y_pos", ee_des_rotation);
-			    ee_des_rotation << 1 , 0, 0,
-			    					0, 1, 0,
-			    					0, 0, 1;
+			    redis_client.getEigenMatrixDerivedString("position", ee_des_pos);
+			    redis_client.getEigenMatrixDerivedString("rotation", ee_des_rotation);
+			    
 
 			    robot->rotation(ee_rotation, ee_link_name);
 			    robot->angularVelocity(RotationVelocity, ee_link_name);
@@ -300,8 +302,8 @@ void control(Model::ModelInterface* robot, Simulation::SimulationInterface* sim)
 				J.block(3, 0, 3, robot->dof()) = J0_swapped.block(0, 0, 3, robot->dof()); // assign Jw
 
 
-			    redis_client.getEigenMatrixDerivedString("x_pos", ee_des_pos);
-			    redis_client.getEigenMatrixDerivedString("y_pos", ee_des_rotation);
+			    redis_client.getEigenMatrixDerivedString("position", ee_des_pos);
+			    redis_client.getEigenMatrixDerivedString("rotation", ee_des_rotation);
 
 			    robot->rotation(ee_rotation, ee_link_name);
 			    robot->angularVelocity(RotationVelocity, ee_link_name);
@@ -328,8 +330,8 @@ void control(Model::ModelInterface* robot, Simulation::SimulationInterface* sim)
 				// qd << robot->_q;
 				// qd[1] = -M_PI/8 + (M_PI/8)*sin(2*M_PI*curr_time/10);
 
-			    redis_client.getEigenMatrixDerivedString("x_pos", ee_des_pos);
-			    redis_client.getEigenMatrixDerivedString("y_pos", ee_des_rotation);
+			    redis_client.getEigenMatrixDerivedString("position", ee_des_pos);
+			    redis_client.getEigenMatrixDerivedString("rotation", ee_des_rotation);
 			    // ee_des_rotation << 1 , 0, 0,
 			    // 					0, 1, 0,
 			    // 					0, 0, 1;

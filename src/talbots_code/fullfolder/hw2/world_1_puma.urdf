@@ -4,7 +4,7 @@
 
 	<robot name="Puma">
 		<!-- model node is required -->
-		<model dir="../resources/puma" path="puma.urdf" name="Puma" />
+		<model dir="./resources/talbots_code" path="Puma.urdf" name="Puma" />
 		<!-- origin node is optional -->
 		<origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
 	</robot>

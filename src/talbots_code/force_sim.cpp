@@ -9,6 +9,7 @@ Date: 4/16/17
 #include <string>
 #include <thread>
 #include <math.h>
+#include "chai3d.h"
 
 #include "model/ModelInterface.h"
 #include "graphics/GraphicsInterface.h"
@@ -19,14 +20,14 @@ Date: 4/16/17
 #include "redis/RedisClient.h"
 
 
-#include "force_sensor/ForceSensorSim.h"
+#include "fullfolder/src/force_sensor/ForceSensorSim.h"
 
 #include <GLFW/glfw3.h> //must be loaded after loading opengl/glew as part of graphicsinterface
 
 using namespace std;
 
 // const string world_fname = "resources/hw2/world_3_iiwa.urdf";
-const string robot_fname = "../resources/puma/puma.urdf";
+const string robot_fname = "resources/talbots_code/puma.urdf";
 // const string robot_fname = "../resources/kuka_iiwa/kuka_iiwa.urdf";
 
 // const string robot_name = "Kuka-IIWA";
@@ -34,7 +35,7 @@ const string robot_fname = "../resources/puma/puma.urdf";
 const string camera_name = "camera_top";
 const string ee_link_name = "end-effector";
 // const string ee_link_name = "link6";
-const string world_fname = "resources/hw2/world_1_puma.urdf";
+const string world_fname = "resources/talbots_code/world_1_puma.urdf";
 // const string robot_fname = "../resources/puma/puma.urdf";
 const string robot_name = "Puma";
 // const string camera_name = "camera_front";
@@ -92,9 +93,10 @@ int main (int argc, char** argv) {
     sim->setCoeffFrictionStatic(0.0);
     sim->setCoeffFrictionDynamic(0.0);
 
+
 	// set initial condition
 	robot->_q << 90/180.0*M_PI,
-				-22.5/180.0*M_PI,
+				22.5/180.0*M_PI,
 				180/180.0*M_PI,
 				90.0/180.0*M_PI,
 				100/180.0*M_PI,
@@ -106,12 +108,16 @@ int main (int argc, char** argv) {
 	// 			-62.4/180.0*M_PI,
 	// 			80.2/180.0*M_PI,
 	// 			187.2/180.0*M_PI;
+
 	sim->setJointPositions(robot_name, robot->_q);
+
 	robot->updateModel();
 	// Eigen::Affine3d ee_trans;
 	// robot->transform(ee_trans, ee_link_name);
 	// cout << ee_trans.translation().transpose() << endl;
 	// cout << ee_trans.rotation() << endl;
+
+	
 
 	// initialize GLFW window
 	GLFWwindow* window = glfwInitialize();
