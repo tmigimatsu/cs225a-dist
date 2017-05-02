@@ -93,7 +93,7 @@ int main (int argc, char** argv) {
 				180/180.0*M_PI,
 				90.0/180.0*M_PI,
 				100/180.0*M_PI,
-	// 			180/180.0*M_PI;
+				180/180.0*M_PI;
 	// robot->_q << 125.9/180.0*M_PI,
 	// 			39.2/180.0*M_PI,
 	// 			-49.2/180.0*M_PI,
@@ -253,9 +253,9 @@ void control(Model::ModelInterface* robot, Simulation::SimulationInterface* sim)
 
 			    redis_client.getEigenMatrixDerivedString("position", ee_des_pos);
 			    redis_client.getEigenMatrixDerivedString("rotation", ee_des_rotation);
-			    ee_des_rotation << 1 , 0, 0,
-			    					0, 1, 0,
-			    					0, 0, 1;
+			    // ee_des_rotation << 1 , 0, 0,
+			    // 					0, 1, 0,
+			    // 					0, 0, 1;
 
 			    robot->rotation(ee_rotation, ee_link_name);
 			    robot->angularVelocity(RotationVelocity, ee_link_name);
