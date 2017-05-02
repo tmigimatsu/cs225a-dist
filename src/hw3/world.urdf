@@ -4,7 +4,7 @@
 
 	<robot name="kuka_iiwa">
 		<!-- model node is required -->
-		<model dir="resources/hw2" path="kuka_iiwa.urdf" name="kuka_iiwa" />
+		<model dir="resources/hw3" path="kuka_iiwa.urdf" name="kuka_iiwa" />
 		<!-- origin node is optional -->
 		<origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
 	</robot>
