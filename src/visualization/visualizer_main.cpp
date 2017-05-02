@@ -16,71 +16,139 @@
 #include <string>
 #include <cmath>
 
+#define ENABLE_TRAJECTORIES
+
 using namespace std;
 
-string world_file = "";
-string robot_file = "";
-string robot_name = "";
-const string camera_name = "camera_fixed";
+static string world_file = "";
+static string robot_file = "";
+static string robot_name = "";
+static const string CAMERA_NAME = "camera_fixed";
 
 // redis keys: 
-// NOTE: keys are formatted to be: key_preprend::<robot-name>::<KEY>
-const std::string key_preprend = "cs225a::robot::";
+// NOTE: keys are formatted to be: REDIS_KEY_PREFIX::<robot-name>::<KEY>
+static const string REDIS_KEY_PREFIX = "cs225a::robot::";
 // - write:
-const std::string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
+static string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - read:
-const std::string JOINT_ANGLES_KEY  = "::sensors::q";
-const std::string JOINT_VELOCITIES_KEY = "::sensors::dq";
+static string JOINT_ANGLES_KEY        = "::sensors::q";
+static string JOINT_VELOCITIES_KEY    = "::sensors::dq";
 
 // function to parse command line arguments
-void parseCommandline(int argc, char** argv);
+static void parseCommandline(int argc, char** argv);
 
 // callback to print glfw errors
-void glfwError(int error, const char* description);
+static void glfwError(int error, const char* description);
 
 // callback when a key is pressed
-void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods);
+static void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 // callback when a mouse button is pressed
-void mouseClick(GLFWwindow* window, int button, int action, int mods);
+static void mouseClick(GLFWwindow* window, int button, int action, int mods);
 
 // callback when user scrolls
-void mouseScroll(GLFWwindow* window, double xoffset, double yoffset);
+static void mouseScroll(GLFWwindow* window, double xoffset, double yoffset);
+
+// find the graphics object with the specified name inside the chai3d world.
+static chai3d::cGenericObject *findObjectInWorld(chai3d::cWorld *world, const string &graphics_name);
 
 // flags for scene camera movement
-bool fTransXp = false;
-bool fTransXn = false;
-bool fTransYp = false;
-bool fTransYn = false;
-bool fRotPanTilt = false;
-bool fZoom = false;
-double zoomSpeed = 0.0;
-bool fRobotLinkSelect = false;
+static bool fTransXp = false;
+static bool fTransXn = false;
+static bool fTransYp = false;
+static bool fTransYn = false;
+static bool fRotPanTilt = false;
+static bool fZoom = false;
+static double zoomSpeed = 0.0;
+static bool fRobotLinkSelect = false;
+
+static const HiredisServerInfo kRedisServerInfo = {
+	"127.0.0.1",  // hostname
+	6379,         // port
+	{ 1, 500000 } // timeout = 1.5 seconds
+};
+
+#ifdef ENABLE_TRAJECTORIES
+/********** Begin Custom Visualizer Code **********/
+
+// Redis keys (read)
+static string EE_POSITION_KEY         = "::tasks::ee_pos";
+static string EE_POSITION_DESIRED_KEY = "::tasks::ee_pos_des";
+
+// Chai3d graphics names
+// - Created inside visualizer_main.cpp
+static string EE_TRAJECTORY_CHAI_NAME         = EE_POSITION_KEY + "_traj";
+static string EE_DESIRED_TRAJECTORY_CHAI_NAME = EE_POSITION_DESIRED_KEY + "_traj";
+// - Created inside world.urdf
+static string EE_POSITION_DESIRED_URDF_NAME   = EE_POSITION_DESIRED_KEY;
+
+// Default number of points in trajectory buffer
+static const int kLenTrajectory = 100;
+
+// Minimum change between two points before updating trajectory
+static const double kTrajectoryMinUpdateDistance = 0.005;
+
+/**
+ * Create a trajectory graphics object with len_trajectory points to be inserted
+ * into chai3d::cWorld.
+ */
+static chai3d::cMultiSegment *createTrajectory(const string &graphics_name, const Eigen::Vector3d &starting_point) {
+	// Create graphics object
+	auto trajectory = new chai3d::cMultiSegment();
+	trajectory->m_name = graphics_name;
+
+	// Link together kLenTrajectory segments with vertices at starting_point
+	trajectory->newVertex(starting_point(0), starting_point(1), starting_point(2));
+	for (int i = 0; i < kLenTrajectory; i++) {
+		trajectory->newVertex(starting_point(0), starting_point(1), starting_point(2));
+		trajectory->newSegment(0, 0);
+	}
+
+	// Set trajectory color to white by default
+	trajectory->setLineColor(chai3d::cColorf(1.0, 1.0, 1.0, 1.0));
+	trajectory->setLineWidth(2.0);
+
+	return trajectory;
+}
+
+/**
+ * Add new point to trajectory and remove oldest point in trajectory buffer.
+ */
+static int updateTrajectoryPoint(chai3d::cMultiSegment *trajectory, int idx_traj, const Eigen::Vector3d &point) {
+	int idx_traj_next = (idx_traj + 1) % kLenTrajectory;
+	int idx_traj_next_2 = (idx_traj_next + 1) % kLenTrajectory;
+
+	// Insert new point at next point in trajectory cycle
+	trajectory->m_vertices->setLocalPos(idx_traj_next, point(0), point(1), point(2));
+	trajectory->m_segments->setVertices(idx_traj, idx_traj, idx_traj_next);
+
+	// Break the old connection to prevent a closed loop
+	trajectory->m_segments->setVertices(idx_traj_next, idx_traj_next_2, idx_traj_next_2);
+	return idx_traj_next;
+}
+
+/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 
 int main(int argc, char** argv) {
 	parseCommandline(argc, argv);
 	cout << "Loading URDF world model file: " << world_file << endl;
 
 	// start redis client
-	HiredisServerInfo info;
-	info.hostname_ = "127.0.0.1"; //"172.24.68.64";
-	info.port_ = 6379;
-	info.timeout_ = { 1, 500000 }; // 1.5 seconds
 	auto redis_client = RedisClient();
-	redis_client.serverIs(info);
+	redis_client.serverIs(kRedisServerInfo);
 
 	// load graphics scene
 	auto graphics_int = new Graphics::GraphicsInterface(world_file, Graphics::chai, Graphics::urdf, true);
-	Graphics::ChaiGraphics* graphics;
-	graphics = dynamic_cast<Graphics::ChaiGraphics*>(graphics_int->_graphics_internal);
+	Graphics::ChaiGraphics* graphics = dynamic_cast<Graphics::ChaiGraphics *>(graphics_int->_graphics_internal);
 	Eigen::Vector3d camera_pos, camera_lookat, camera_vertical;
-	graphics->getCameraPose(camera_name, camera_pos, camera_vertical, camera_lookat);
+	graphics->getCameraPose(CAMERA_NAME, camera_pos, camera_vertical, camera_lookat);
 
 	// load robots
-	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
+	auto robot = make_shared<Model::ModelInterface>(robot_file, Model::rbdl, Model::urdf, false);
 
 	// create a UI widget to apply mouse forces to the robot
-	UIForceWidget force_widget(robot_name, robot, graphics);
+	UIForceWidget force_widget(robot_name, robot.get(), graphics);
 	force_widget.setEnable(false);
 
 	/*------- Set up visualization -------*/
@@ -117,14 +185,66 @@ int main(int argc, char** argv) {
 
 	// cache and temp variables
 	double last_cursorx, last_cursory;
+
 	Eigen::VectorXd interaction_torques;
+
+#ifdef ENABLE_TRAJECTORIES
+	/********** Begin Custom Visualizer Code **********/
+
+	// Set up trajectory tracking variables
+	Eigen::Vector3d x, x_des;            // Current end effector pos
+	Eigen::Vector3d x_prev, x_des_prev;  // Previous end effector pos
+	int idx_traj = 0, idx_des_traj = 0;  // Current idx in trajectory buffer
+	redis_client.getEigenMatrixDerivedString(EE_POSITION_KEY, x);
+	redis_client.getEigenMatrixDerivedString(EE_POSITION_DESIRED_KEY, x_des);
+	x_prev = x;
+	x_des_prev = x_des;
+
+	// Create trajectory graphics objects and insert them into the chai3d world
+	auto x_traj = createTrajectory(EE_TRAJECTORY_CHAI_NAME, x);
+	auto x_des_traj = createTrajectory(EE_DESIRED_TRAJECTORY_CHAI_NAME, x_des);
+	x_des_traj->setLineColor(chai3d::cColorf(1.0, 0.0, 0.0, 1.0));  // Red for x_des
+	graphics->_world->addChild(x_traj);
+	graphics->_world->addChild(x_des_traj);
+
+	// Retrieve cs225a::<robot_name>::tasks::ee_pos_des sphere marker from world.urdf
+	auto x_des_marker = findObjectInWorld(graphics->_world, EE_POSITION_DESIRED_URDF_NAME);
+
+	/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 
     // while window is open:
     while (!glfwWindowShouldClose(window))
 	{
 		// read from Redis
-		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_ANGLES_KEY, robot->_q);
-		redis_client.getEigenMatrixDerivedString(key_preprend+robot_name+JOINT_VELOCITIES_KEY, robot->_dq);
+		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
+		redis_client.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+
+#ifdef ENABLE_TRAJECTORIES
+		/********** Begin Custom Visualizer Code **********/
+
+		redis_client.getEigenMatrixDerivedString(EE_POSITION_KEY, x);
+		redis_client.getEigenMatrixDerivedString(EE_POSITION_DESIRED_KEY, x_des);
+
+		// Update end effector position trajectory
+		if ((x - x_prev).norm() > kTrajectoryMinUpdateDistance) {
+			idx_traj = updateTrajectoryPoint(x_traj, idx_traj, x);
+			x_prev = x;
+		}
+
+		// Update end effector desired position trajectory
+		if ((x_des - x_des_prev).norm() > kTrajectoryMinUpdateDistance) {
+			idx_des_traj = updateTrajectoryPoint(x_des_traj, idx_des_traj, x_des);
+			x_des_prev = x_des;
+		}
+
+		// Update end effector desired position marker
+		if (x_des_marker != nullptr) {
+			x_des_marker->setLocalPos(chai3d::cVector3d(x_des));
+		}
+
+		/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 
 		// update transformations
 		robot->updateModel();
@@ -132,8 +252,8 @@ int main(int argc, char** argv) {
 		// update graphics. this automatically waits for the correct amount of time
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
-		graphics->updateGraphics(robot_name, robot);
-		graphics->render(camera_name, width, height);
+		graphics->updateGraphics(robot_name, robot.get());
+		graphics->render(CAMERA_NAME, width, height);
 
 		// swap buffers
 		glfwSwapBuffers(window);
@@ -198,7 +318,7 @@ int main(int argc, char** argv) {
 			camera_pos = camera_pos + 0.04*camera_lookat*zoomSpeed;
 			fZoom = false;
 	    }
-	    graphics->setCameraPose(camera_name, camera_pos, cam_up_axis, camera_lookat);
+	    graphics->setCameraPose(CAMERA_NAME, camera_pos, cam_up_axis, camera_lookat);
 	    glfwGetCursorPos(window, &last_cursorx, &last_cursory);
 	    if (fRobotLinkSelect) {
 			//activate widget
@@ -216,7 +336,7 @@ int main(int argc, char** argv) {
 			std::string ret_link_name;
 			Eigen::Vector3d ret_pos;
 			if (cursorx > 0 && cursory > 0) {
-				force_widget.setInteractionParams(camera_name, viewx, wheight_pix-viewy, wwidth_pix, wheight_pix);
+				force_widget.setInteractionParams(CAMERA_NAME, viewx, wheight_pix-viewy, wwidth_pix, wheight_pix);
 				//TODO: this behavior might be wrong. this will allow the user to click elsewhere in the screen
 				// then drag the mouse over a link to start applying a force to it.
 			}
@@ -226,7 +346,7 @@ int main(int argc, char** argv) {
 		// get UI torques
 		force_widget.getUIJointTorques(interaction_torques);
 		//write to redis
-		redis_client.setEigenMatrixDerivedString(key_preprend+robot_name+JOINT_INTERACTION_TORQUES_COMMANDED_KEY, interaction_torques);
+		redis_client.setEigenMatrixDerivedString(JOINT_INTERACTION_TORQUES_COMMANDED_KEY, interaction_torques);
 	}
 
     // destroy context
@@ -251,18 +371,35 @@ void parseCommandline(int argc, char** argv) {
 	robot_file = string(argv[2]);
 	// argument 3: <robot-name>
 	robot_name = string(argv[3]);
+
+	// Set up Redis keys
+	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = REDIS_KEY_PREFIX + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
+	JOINT_ANGLES_KEY        = REDIS_KEY_PREFIX + robot_name + JOINT_ANGLES_KEY;
+	JOINT_VELOCITIES_KEY    = REDIS_KEY_PREFIX + robot_name + JOINT_VELOCITIES_KEY;
+
+#ifdef ENABLE_TRAJECTORIES
+	/********** Begin Custom Visualizer Code **********/
+
+	EE_POSITION_KEY         = REDIS_KEY_PREFIX + robot_name + EE_POSITION_KEY;
+	EE_POSITION_DESIRED_KEY = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_KEY;
+	EE_TRAJECTORY_CHAI_NAME         = REDIS_KEY_PREFIX + robot_name + EE_TRAJECTORY_CHAI_NAME;
+	EE_DESIRED_TRAJECTORY_CHAI_NAME = REDIS_KEY_PREFIX + robot_name + EE_DESIRED_TRAJECTORY_CHAI_NAME;
+	EE_POSITION_DESIRED_URDF_NAME = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_URDF_NAME;
+
+	/********** End Custom Visualizer Code **********/
+#endif // ENABLE_TRAJECTORIES
 }
 
 //------------------------------------------------------------------------------
 
-void glfwError(int error, const char* description) {
+static void glfwError(int error, const char* description) {
 	cerr << "GLFW Error: " << description << endl;
 	exit(1);
 }
 
 //------------------------------------------------------------------------------
 
-void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods)
+static void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	bool set = (action != GLFW_RELEASE);
     switch(key) {
@@ -289,7 +426,7 @@ void keySelect(GLFWwindow* window, int key, int scancode, int action, int mods)
 
 //------------------------------------------------------------------------------
 
-void mouseClick(GLFWwindow* window, int button, int action, int mods) {
+static void mouseClick(GLFWwindow* window, int button, int action, int mods) {
 	bool set = (action != GLFW_RELEASE);
 	//TODO: mouse interaction with robot
 	switch (button) {
@@ -319,7 +456,18 @@ void mouseClick(GLFWwindow* window, int button, int action, int mods) {
 }
 
 //------------------------------------------------------------------------------
-void mouseScroll(GLFWwindow* window, double xoffset, double yoffset) {
+static void mouseScroll(GLFWwindow* window, double xoffset, double yoffset) {
 	fZoom = true;
 	zoomSpeed = yoffset;
+}
+
+//------------------------------------------------------------------------------
+static chai3d::cGenericObject *findObjectInWorld(chai3d::cWorld *world, const string &graphics_name) {
+	for (unsigned int i = 0; i < world->getNumChildren(); ++i) {
+		auto graphics_obj = world->getChild(i);
+		if (graphics_obj->m_name == graphics_name) {
+			return graphics_obj;
+		}
+	}
+	return nullptr;
 }
