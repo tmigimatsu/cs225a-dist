@@ -7,7 +7,7 @@
 #include <iostream>
 #include <signal.h>
 
-// #define USE_CHRONO
+#define USE_CHRONO
 
 #ifdef USE_CHRONO
 #include <chrono>
@@ -63,6 +63,7 @@ public:
 		auto ns_initial_wait = std::chrono::nanoseconds(initial_wait_nanoseconds);
 		t_next_ = std::chrono::high_resolution_clock::now() + ns_initial_wait;
 		t_start_ = t_next_;
+		t_loop_ = t_start_ - t_start_;
 #else // USE_CHRONO
 		// initialize time
 		getCurrentTime(t_next_);
