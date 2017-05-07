@@ -1,5 +1,8 @@
 # create an executable
-ADD_EXECUTABLE (hw3 hw3.cpp)
+ADD_EXECUTABLE (hw3
+	${CS225A_COMMON_SOURCE}
+	hw3.cpp
+)
 
 # and link the library against the executable
 TARGET_LINK_LIBRARIES (hw3

@@ -43,6 +43,5 @@ build_dbg
 # External libraries
 external/*
 !external/NatNetLinux.git
-# sai2-common
 sai2-simulation
 resources

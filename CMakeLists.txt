@@ -6,7 +6,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++14 -I/usr/include -I/usr/local/include -Wno-ignored
 # set common source
 set (CS225A_COMMON_SOURCE
 	# ${PROJECT_SOURCE_DIR}/src/redis/RedisClient.cpp
-	# ${PROJECT_SOURCE_DIR}/src/timer/LoopTimer.cpp
+	${PROJECT_SOURCE_DIR}/src/timer/LoopTimer.cpp
 )
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
