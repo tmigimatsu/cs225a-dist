@@ -41,7 +41,8 @@ build_dbg
 .vscode
 
 # External libraries
-external
-sai2-common
+external/*
+!external/NatNetLinux.git
+# sai2-common
 sai2-simulation
 resources
