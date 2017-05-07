@@ -1,12 +1,13 @@
 
 cmake_minimum_required (VERSION 2.8.12)
 project (CS225A)
-SET(CMAKE_CXX_FLAGS "-std=c++11 -I/usr/include -I/usr/local/include -Wno-ignored-attributes -Wno-deprecated-declarations")
+SET(CMAKE_CXX_FLAGS "-std=c++14 -I/usr/include -I/usr/local/include -Wno-ignored-attributes -Wno-deprecated-declarations")
 
 # set common source
 set (CS225A_COMMON_SOURCE
-	${PROJECT_SOURCE_DIR}/src/redis/RedisClient.h
-	${PROJECT_SOURCE_DIR}/src/timer/LoopTimer.h)
+	# ${PROJECT_SOURCE_DIR}/src/redis/RedisClient.cpp
+	# ${PROJECT_SOURCE_DIR}/src/timer/LoopTimer.cpp
+)
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
 # set common dependencies
