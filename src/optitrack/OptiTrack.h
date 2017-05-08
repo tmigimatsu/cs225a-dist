@@ -18,26 +18,28 @@
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
 
-template <int Fps, int NoDropFps>
+template <int Fps>
 class OptiTrack;
 
-typedef OptiTrack<120, 30> OptiTrack225a;
+const int kOptiTrackFps225a = 120;
+const string kOptiTrackServerIp225a = "172.24.68.48";
+typedef OptiTrack<kOptiTrackFps225a> OptiTrack225a;
 
-template <int CameraFps, int ExportFps>
+template <int Fps>
 class OptiTrack {
 
 public:
 
 	OptiTrack() :
 		t_frame_(0),
-		t_frame_next_(0)
-	{};
+		t_frame_next_(1)
+	{}
+
 	~OptiTrack();
 
-	typedef std::chrono::duration<int, std::ratio<1, CameraFps>> SubFrameTime;
-	typedef std::chrono::duration<int, std::ratio<1, ExportFps>> FrameTime;
+	typedef std::chrono::duration<int, std::ratio<1, Fps>> FrameTime;
 
-	bool openConnection(const std::string& local_ip_address, const std::string& server_ip_address = "172.24.68.48");
+	bool openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address = kOptiTrackServerIp225a);
 	void closeConnection();
 
 	bool openCsv(const std::string& filename);
@@ -45,11 +47,19 @@ public:
 
 	bool getFrame();
 
+	int frameNum() {
+		return t_frame_.count();
+	};
+
+	long double frameTime() {
+		return std::chrono::duration<long double>(t_frame_).count();
+	};
+
 	std::vector<Eigen::Vector3f> pos_rigid_bodies_;
 	std::vector<Eigen::Quaternionf, Eigen::aligned_allocator<Eigen::Quaternionf>> ori_rigid_bodies_;
 	std::vector<Eigen::Vector3f> pos_single_markers_;
 
-	SubFrameTime t_frame_;
+	FrameTime t_frame_;
 
 private:
 
@@ -74,25 +84,26 @@ private:
 	// CSV variables
 	std::ifstream csv_file_;
 	std::vector<MarkerType> marker_types_;
+	int num_single_marker_ids_;
 
 	// Timer
 	bool t_initialized_ = false;
 	std::chrono::high_resolution_clock::time_point t_start_;
 	FrameTime t_frame_next_;
-
+	int num_frame_start_ = 0;
 };
 
 /*** NOTE: Template definitions need to be placed in header file. ***/
 
-template <int F1, int F2>
-OptiTrack<F1,F2>::~OptiTrack(){
+template <int Fps>
+OptiTrack<Fps>::~OptiTrack(){
 	closeConnection();
 	closeCsv();
 };
 
-template <int F1, int F2>
-bool OptiTrack<F1,F2>::openConnection(const std::string& local_ip_address, const std::string& server_ip_address) {
-    uint32_t local_address = inet_addr(local_ip_address.c_str());
+template <int Fps>
+bool OptiTrack<Fps>::openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address) {
+    uint32_t local_address = inet_addr(local_public_ip_address.c_str());
     uint32_t server_address = inet_addr(server_ip_address.c_str());
 
 	// Use this socket address to send commands to the server.
@@ -131,8 +142,8 @@ bool OptiTrack<F1,F2>::openConnection(const std::string& local_ip_address, const
 	return true;
 }
 
-template <int F1, int F2>
-void OptiTrack<F1,F2>::closeConnection() {
+template <int Fps>
+void OptiTrack<Fps>::closeConnection() {
 	// Wait for threads to finish
 	if (command_listener_) command_listener_->stop();
 	if (frame_listener_) frame_listener_->stop();
@@ -144,8 +155,8 @@ void OptiTrack<F1,F2>::closeConnection() {
 	close(sd_data_);
 }
 
-template <int F1, int F2>
-bool OptiTrack<F1,F2>::openCsv(const std::string& filename) {
+template <int Fps>
+bool OptiTrack<Fps>::openCsv(const std::string& filename) {
 	csv_file_.open(filename);
 	if (csv_file_.fail()) return false;
 
@@ -165,31 +176,63 @@ bool OptiTrack<F1,F2>::openCsv(const std::string& filename) {
 		if (cell == "Rigid Body") {
 			marker_types_.push_back(RIGID_BODY_POSITION);
 			marker_types_.push_back(RIGID_BODY_POSITION);
-			// Skip -YZWXY
-			for (int i = 0; i < 6; i++) std::getline(ss_line, cell, ',');
+			// Skip -YZWXYZe
+			for (int i = 0; i < 7; i++) std::getline(ss_line, cell, ',');
 			num_rigid_bodies++;
 		} else if (cell == "Marker") {
 			marker_types_.push_back(SINGLE_MARKER_POSITION);
 			// Skip -YZ
 			for (int i = 0; i < 2; i++) std::getline(ss_line, cell, ',');
 			num_markers++;
+		} else {
+			marker_types_.push_back(OTHER);
 		}
 	}
 
 	std::getline(csv_file_, line);  // Label
-	std::getline(csv_file_, line);  // Marker ID
-
-	std::getline(csv_file_, line);  // Position/Orientation
+	ss_line.str("");
+	ss_line.clear();
 	ss_line.str(line);
 	std::getline(ss_line, cell, ',');  // Frame
 	std::getline(ss_line, cell, ',');  // Time
 	int idx = 0;
 	while (std::getline(ss_line, cell, ',')) {
+		if (marker_types_[idx] == RIGID_BODY_POSITION) {
+			// Skip -YZWXYZe
+			for (int i = 0; i < 7; i++) std::getline(ss_line, cell, ',');
+			idx++;
+		} else if (marker_types_[idx] == SINGLE_MARKER_POSITION) {
+			if (cell.compare(0, 7, "Marker_") != 0) {
+				// Remove rigid body marker from single markers list
+				marker_types_[idx] = OTHER;
+				marker_types_.insert(marker_types_.begin() + idx, 2, OTHER);
+				idx += 2;
+			}
+			// Skip -YZ
+			for (int i = 0; i < 2; i++) std::getline(ss_line, cell, ',');
+		}
+		idx++;
+	}
+
+
+	std::getline(csv_file_, line);  // Marker ID
+
+	std::getline(csv_file_, line);  // Position/Orientation
+	ss_line.str("");
+	ss_line.clear();
+	ss_line.str(line);
+	std::getline(ss_line, cell, ',');  // Frame
+	std::getline(ss_line, cell, ',');  // Time
+	idx = 0;
+	while (std::getline(ss_line, cell, ',')) {
 		if (cell == "Rotation") {
 			marker_types_[idx] = RIGID_BODY_ORIENTATION;
 			// Skip -YZW
 			for (int i = 0; i < 3; i++) std::getline(ss_line, cell, ',');
-		} else {
+		} else if (marker_types_[idx] == RIGID_BODY_POSITION) {
+			// Skip -YZe
+			for (int i = 0; i < 3; i++) std::getline(ss_line, cell, ',');
+		} else if (marker_types_[idx] == SINGLE_MARKER_POSITION) {
 			// Skip -YZ
 			for (int i = 0; i < 2; i++) std::getline(ss_line, cell, ',');
 		}
@@ -201,41 +244,39 @@ bool OptiTrack<F1,F2>::openCsv(const std::string& filename) {
 	// Set buffer sizes
 	pos_rigid_bodies_.resize(num_rigid_bodies);
 	ori_rigid_bodies_.resize(num_rigid_bodies);
+	num_single_marker_ids_ = num_markers;
 	pos_single_markers_.resize(num_markers);
 
 	return true;
 }
 
-template <int F1, int F2>
-void OptiTrack<F1,F2>::closeCsv() {
+template <int Fps>
+void OptiTrack<Fps>::closeCsv() {
 	csv_file_.close();
 }
 
-template <int F1, int F2>
-bool OptiTrack<F1,F2>::getFrame() {
-	if (csv_file_) return readCsvFrame();
+template <int Fps>
+bool OptiTrack<Fps>::getFrame() {
+	if (csv_file_.is_open()) return readCsvFrame();
 	if (command_listener_ && frame_listener_) return readNetworkFrame();
-	std::cout << "OptiTrack::getFrame(): No open connection or specified csv file." << std::endl;
+	// std::cout << "OptiTrack::getFrame(): No open connection or specified csv file." << std::endl;
 	return false;
 }
 
-template <int F1, int F2>
-bool OptiTrack<F1,F2>::readNetworkFrame() {
+template <int Fps>
+bool OptiTrack<Fps>::readNetworkFrame() {
 	// Try to get a new frame from the listener.
 	bool frame_available;
 	MocapFrame frame(frame_listener_->pop(&frame_available).first);
 	if (!frame_available) return false;
 
-	// Get recorded time
-	int hour, min, sec, fframe, subframe;
-	frame.timecode(hour, min, sec, fframe, subframe);
-
-	std::chrono::hours t_hour(hour);
-	std::chrono::minutes t_min(min);
-	std::chrono::seconds t_sec(sec);
-	FrameTime t_frame(fframe);
-	SubFrameTime t_subframe(subframe);
-	t_frame_ = t_hour + t_min + t_sec + t_frame + t_subframe;
+	// Get recorded time from frame number
+	int num_frame = frame.frameNum();
+	if (!t_initialized_) {
+		num_frame_start_ = num_frame;
+		t_initialized_ = true;
+	}
+	t_frame_ = FrameTime(num_frame - num_frame_start_);
 
 	// Get rigid bodies
 	std::vector<RigidBody> rigid_bodies = frame.rigidBodies();
@@ -261,8 +302,10 @@ bool OptiTrack<F1,F2>::readNetworkFrame() {
 	return true;
 }
 
-template <int F1, int F2>
-bool OptiTrack<F1,F2>::readCsvFrame() {
+template <int Fps>
+bool OptiTrack<Fps>::readCsvFrame() {
+	if (csv_file_.eof()) return false;
+
 	// Check time
 	if (!t_initialized_) {
 		// Initialize time and continue
@@ -278,6 +321,7 @@ bool OptiTrack<F1,F2>::readCsvFrame() {
 		if (num_frames_diff < 0) return false;
 
 		// Set next frame time
+		t_frame_ = t_frame_next_;
 		t_frame_next_ += FrameTime(1 + num_frames_diff);
 
 		// Fast forward to most recent frame
@@ -297,18 +341,18 @@ bool OptiTrack<F1,F2>::readCsvFrame() {
 	int num_frame;
 	double sec_frame;
 	char comma;
-	ss_line >> num_frame >> comma >> sec_frame;
-	t_frame_ += FrameTime(1);
+	ss_line >> num_frame >> comma >> sec_frame >> comma;
 
 	// Parse frame
 	int idx_pos_rigid_body = 0;
 	int idx_ori_rigid_body = 0;
 	int idx_pos_single_marker = 0;
+	pos_single_markers_.resize(num_single_marker_ids_);
 	for (auto marker_type : marker_types_) {
 		if (marker_type == RIGID_BODY_POSITION) {
-			// Parse rigid body position: x,y,z
-			float x, y, z;
-			ss_line >> x >> comma >> y >> comma >> z;
+			// Parse rigid body position: x,y,z,err
+			float x, y, z, e;
+			ss_line >> x >> comma >> y >> comma >> z >> comma >> e;
 			pos_rigid_bodies_[idx_pos_rigid_body] = Eigen::Vector3f(x, y, z);
 			idx_pos_rigid_body++;
 		} else if (marker_type == RIGID_BODY_ORIENTATION) {
@@ -318,15 +362,25 @@ bool OptiTrack<F1,F2>::readCsvFrame() {
 			ori_rigid_bodies_[idx_ori_rigid_body] = Eigen::Quaternionf(w, x, y, z);
 			idx_ori_rigid_body++;
 		} else if (marker_type == SINGLE_MARKER_POSITION) {
-			// Parse single marker position: x,y,z
-			float x, y, z;
-			ss_line >> x >> comma >> y >> comma >> z;
-			pos_single_markers_[idx_pos_single_marker] = Eigen::Vector3f(x, y, z);
-			idx_pos_single_marker++;
+			if (ss_line.peek() == ',') {
+				// Skip missing marker positions
+				for (int i = 0; i < 2; i++) ss_line >> comma;
+			} else {
+				// Parse single marker position: x,y,z
+				float x, y, z;
+				ss_line >> x >> comma >> y >> comma >> z;
+				pos_single_markers_[idx_pos_single_marker] = Eigen::Vector3f(x, y, z);
+				idx_pos_single_marker++;
+			}
+		} else {
+			// Skip cell
+			float f;
+			ss_line >> f;
 		}
 		// Parse comma
 		ss_line >> comma;
 	}
+	pos_single_markers_.resize(idx_pos_single_marker);
 
 	return true;
 }
