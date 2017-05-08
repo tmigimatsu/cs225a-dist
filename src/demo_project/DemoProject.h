@@ -4,6 +4,7 @@
 // cs225a includes
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
+#include "optitrack/OptiTrackClient.h"
 
 // external includes
 #include <Eigen/Core>
@@ -133,6 +134,9 @@ protected:
 	LoopTimer timer_;
 	double t_curr_;
 	uint64_t controller_counter_ = 0;
+
+	// OptiTrack
+	std::unique_ptr<OptiTrackClient> optitrack_;
 
 	// State machine
 	ControllerState controller_state_;

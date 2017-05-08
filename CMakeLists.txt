@@ -7,6 +7,7 @@ SET(CMAKE_CXX_FLAGS "-std=c++14 -I/usr/include -I/usr/local/include -Wno-ignored
 set (CS225A_COMMON_SOURCE
 	# ${PROJECT_SOURCE_DIR}/src/redis/RedisClient.cpp
 	${PROJECT_SOURCE_DIR}/src/timer/LoopTimer.cpp
+	${PROJECT_SOURCE_DIR}/src/optitrack/OptiTrackClient.cpp
 )
 include_directories(${PROJECT_SOURCE_DIR}/src)
 
@@ -54,6 +55,12 @@ endif ()
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
+# - natnetlinux
+find_package(Boost REQUIRED COMPONENTS thread)
+include_directories(${Boost_INCLUDE_DIRS})
+link_libraries(${Boost_LIBRARIES})
+include_directories(${PROJECT_SOURCE_DIR}/external/NatNetLinux.git/include)
+
 set(CS225A_COMMON_LIBRARIES
 	${CHAI3D_LIBARIES}
 	${SAI2-COMMON_LIBRARIES}
@@ -70,6 +77,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE        ${PROJECT_SOURCE_DIR}/bin)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${PROJECT_SOURCE_DIR}/bin)
 set (CS225A_BINARY_DIR ${PROJECT_SOURCE_DIR}/bin)
 
+# add_subdirectory(src/optitrack)
 add_subdirectory(src/visualization)
 add_subdirectory(src/simulation)
 add_subdirectory(src/hw0)

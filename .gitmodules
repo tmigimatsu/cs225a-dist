@@ -2,3 +2,6 @@
 	path = sai2-common
 	url = https://github.com/manips-sai/sai2-common.git
 	branch = master
+[submodule "external/NatNetLinux.git"]
+	path = external/NatNetLinux.git
+	url = https://github.com/tmigimatsu/NatNetLinux.git
