@@ -144,6 +144,31 @@ void DemoProject::initialize() {
 	// Make sure redis-server is running at localhost with default port 6379
 	redis_client_.serverIs(kRedisServerInfo);
 
+	// Set up optitrack
+	optitrack_ = make_unique<OptiTrack225a>();
+	optitrack_->openConnection("172.24.69.199");
+	// optitrack_->openCsv("../resources/optitrack_120.csv");
+
+	while (true) {
+		if (!optitrack_->getFrame()) continue;
+		cout << optitrack_->frameNum() << " " << optitrack_->frameTime()	 << endl;
+		cout << "Rigid body positions" << endl;
+		for (auto& pos : optitrack_->pos_rigid_bodies_) {
+			cout << pos.transpose() << endl;
+		}
+		cout << endl;
+		cout << "Rigid body orientations" << endl;
+		for (auto& ori : optitrack_->ori_rigid_bodies_) {
+			cout << ori.w() << " " << ori.x() << " " << ori.y() << " " << ori.z() << endl;
+		}
+		cout << endl;
+		cout << "Marker positions" << endl;
+		for (auto& pos : optitrack_->pos_single_markers_) {
+			cout << pos.transpose() << endl;
+		}
+		cout << endl;
+	}
+
 	// Set gains in Redis if not initialized
 	if (!redis_client_.getCommandIs(KP_POSITION_KEY)) {
 		redis_buf_ = to_string(kp_pos_);
