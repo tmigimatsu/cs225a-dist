@@ -41,7 +41,6 @@ build_dbg
 .vscode
 
 # External libraries
-external
-sai2-common
+external/*
 sai2-simulation
 resources
