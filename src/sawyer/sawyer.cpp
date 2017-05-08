@@ -35,6 +35,7 @@ static std::string KP_JOINT_KEY = "";
 static std::string KV_JOINT_KEY = "";
 static std::string KP_JOINT_INIT_KEY = "";
 static std::string KV_JOINT_INIT_KEY = "";
+static std::string EE_POSITION_KEY = "";
 
 // Function to parse command line arguments
 void parseCommandline(int argc, char** argv);
@@ -55,6 +56,8 @@ int main(int argc, char** argv) {
 	KV_JOINT_KEY                = "cs225a::robot::" + robot_name + "::tasks::kv_joint";
 	KP_JOINT_INIT_KEY           = "cs225a::robot::" + robot_name + "::tasks::kp_joint_init";
 	KV_JOINT_INIT_KEY           = "cs225a::robot::" + robot_name + "::tasks::kv_joint_init";
+	EE_POSITION_KEY             = "cs225a::robot::" + robot_name + "::tasks::ee_pos";
+
 
 	cout << "Loading URDF world model file: " << world_file << endl;
 
@@ -71,6 +74,8 @@ int main(int argc, char** argv) {
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 	robot->updateModel();
 	const int dof = robot->dof();
+	cout << "DOF" << endl;
+	cout << dof << endl;
 	// Create a loop timer
 	const double control_freq = 1000;
 	LoopTimer timer;
@@ -80,19 +85,61 @@ int main(int argc, char** argv) {
 	timer.initializeTimer(1e6); // 1 ms pause before starting loop
 	
 	Eigen::VectorXd command_torques(dof);
+	Eigen::VectorXd q_err(dof), g(dof);
+	Eigen::VectorXd q_initial = Eigen::VectorXd::Zero(dof); // Desired initial joint position
 
-	// While window is open:
+	Eigen::MatrixXd Jv, Jbar, Lambda, N;
+	Eigen::Vector3d F, x, x_des, dx, p;
+	Eigen::VectorXd nullspace_damping, q_des(dof);;
+	Lambda = Eigen::MatrixXd::Zero(3, 3);
+	Jbar = Eigen::MatrixXd::Zero(dof, 3);
+	N = Eigen::MatrixXd::Zero(dof, dof);
+	Eigen::Vector3d x_initial;
+	x_des << 0.5, 0, 0.8;
+
+	redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
+	q_des = robot->_q;
+
+	int kp_pos = 300;
+	int kv_joint = 45;
+	int kp_joint = 100;
+	int kv_pos = 70;
+	string redis_buf;
+	robot->position(x_initial, "right_l6", Eigen::Vector3d::Zero());
+
 	while (runloop) {
-		// wait for next scheduled loop (controller must run at precise rate)
 		timer.waitForNextLoop();
+
+		// Get current simulation timestamp from Redis
+		redis_client.getCommandIs(TIMESTAMP_KEY, redis_buf);
+		double t_curr = stod(redis_buf);
 
 		// read from Redis current sensor values
 		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
 		redis_client.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
 
 		// Update the model
-		robot->updateModel();	
-		command_torques.setZero();
+		robot->updateModel();
+		robot->gravityVector(g);
+		//------ Compute controller torques
+		robot->Jv(Jv, "right_l6", Eigen::Vector3d::Zero());
+		robot->taskInertiaMatrixWithPseudoInv(Lambda, Jv);
+		robot->dynConsistentInverseJacobian(Jbar, Jv);
+		robot->gravityVector(g);
+		robot->position(x, "right_l6", Eigen::Vector3d::Zero());
+		robot->linearVelocity(dx, "right_l6", Eigen::Vector3d::Zero());
+		robot->nullspaceMatrix(N, Jv);
+
+		x_des << -0.5, 0.5 * sin(0.5*M_PI*t_curr), 0.15 + 0.5 * cos(0.5*M_PI*t_curr);
+		x_des += x_initial;
+
+		// Send end effector position
+		redis_client.setEigenMatrixDerivedString(EE_POSITION_KEY, x);
+
+		F = Lambda * (kp_pos * (x_des - x) - kv_pos * dx);
+		nullspace_damping = N.transpose() * robot->_M * (kp_joint * (q_des - robot->_q)-kv_joint * robot->_dq);
+		command_torques = Jv.transpose() * F + nullspace_damping + g;
+
 		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 	}
 	

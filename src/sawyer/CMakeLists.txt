@@ -1,5 +1,8 @@
 # create an executable
-ADD_EXECUTABLE (sawyer sawyer.cpp)
+ADD_EXECUTABLE (sawyer 
+        ${CS225A_COMMON_SOURCE} 
+        sawyer.cpp
+)
 
 # and link the library against the executable
 TARGET_LINK_LIBRARIES (sawyer
