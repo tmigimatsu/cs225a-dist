@@ -88,24 +88,25 @@ int main(int argc, char** argv) {
 	Eigen::VectorXd q_err(dof), g(dof);
 	Eigen::VectorXd q_initial = Eigen::VectorXd::Zero(dof); // Desired initial joint position
 
-	Eigen::MatrixXd Jv, Jbar, Lambda, N;
-	Eigen::Vector3d F, x, x_des, dx, p;
-	Eigen::VectorXd nullspace_damping, q_des(dof);;
-	Lambda = Eigen::MatrixXd::Zero(3, 3);
-	Jbar = Eigen::MatrixXd::Zero(dof, 3);
-	N = Eigen::MatrixXd::Zero(dof, dof);
+	Eigen::MatrixXd J, Lambda(6,6), N(dof,dof);
+	Eigen::Matrix3d R, R_des;
+	Eigen::Vector3d x, x_des, dx, p, w, d_phi, ddx, dw;
+	Eigen::VectorXd nullspace_damping, q_des(dof), ddx_dw(6), F(6);
 	Eigen::Vector3d x_initial;
 	x_des << 0.5, 0, 0.8;
 
 	redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
 	q_des = robot->_q;
 
-	int kp_pos = 300;
-	int kv_joint = 45;
-	int kp_joint = 100;
+	int kp_pos = 200;
 	int kv_pos = 70;
+	int kp_ori = 50;
+	int kv_ori = 10;
+	int kv_joint = 8;
+	int kp_joint = 25;
 	string redis_buf;
 	robot->position(x_initial, "right_l6", Eigen::Vector3d::Zero());
+	robot->rotation(R_des, "right_l6");
 
 	while (runloop) {
 		timer.waitForNextLoop();
@@ -122,23 +123,28 @@ int main(int argc, char** argv) {
 		robot->updateModel();
 		robot->gravityVector(g);
 		//------ Compute controller torques
-		robot->Jv(Jv, "right_l6", Eigen::Vector3d::Zero());
-		robot->taskInertiaMatrixWithPseudoInv(Lambda, Jv);
-		robot->dynConsistentInverseJacobian(Jbar, Jv);
+		robot->J(J, "right_l6", Eigen::Vector3d::Zero());
+		robot->taskInertiaMatrixWithPseudoInv(Lambda, J);
 		robot->gravityVector(g);
 		robot->position(x, "right_l6", Eigen::Vector3d::Zero());
+		robot->rotation(R, "right_l6");
 		robot->linearVelocity(dx, "right_l6", Eigen::Vector3d::Zero());
-		robot->nullspaceMatrix(N, Jv);
+		robot->angularVelocity(w, "right_l6");
+		robot->orientationError(d_phi, R_des, R);
+		robot->nullspaceMatrix(N, J);
 
-		x_des << -0.5, 0.5 * sin(0.5*M_PI*t_curr), 0.15 + 0.5 * cos(0.5*M_PI*t_curr);
+		x_des << -0.1, 0.2 * sin(0.5*M_PI*t_curr) + 0.05, 0.1 + 0.2 * cos(0.5*M_PI*t_curr);
 		x_des += x_initial;
 
 		// Send end effector position
 		redis_client.setEigenMatrixDerivedString(EE_POSITION_KEY, x);
-
-		F = Lambda * (kp_pos * (x_des - x) - kv_pos * dx);
+		
+		dw = -kp_ori * d_phi - kv_ori * w;
+		ddx = -kp_pos * (x - x_des) - kv_pos * dx;
+		ddx_dw << dw, ddx;
+		F = Lambda * ddx_dw;
 		nullspace_damping = N.transpose() * robot->_M * (kp_joint * (q_des - robot->_q)-kv_joint * robot->_dq);
-		command_torques = Jv.transpose() * F + nullspace_damping + g;
+		command_torques = J.transpose() * F + nullspace_damping + g;
 
 		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 	}
