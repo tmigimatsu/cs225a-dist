@@ -1,108 +1,14 @@
-#ifndef OPTITRACK_H
-#define OPTITRACK_H
+#include "OptiTrackClient.h"
 
 // NatNetLinux
 #include <NatNetLinux/NatNet.h>
-#include <NatNetLinux/CommandListener.h>
-#include <NatNetLinux/FrameListener.h>
 
-// std
-#include <vector>
-#include <thread>
-#include <chrono>
-#include <iostream>
-#include <fstream>
-
-// Eigen
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <Eigen/StdVector>
-
-template <int Fps>
-class OptiTrack;
-
-const int kOptiTrackFps225a = 120;
-const string kOptiTrackServerIp225a = "172.24.68.48";
-typedef OptiTrack<kOptiTrackFps225a> OptiTrack225a;
-
-template <int Fps>
-class OptiTrack {
-
-public:
-
-	OptiTrack() :
-		t_frame_(0),
-		t_frame_next_(1)
-	{}
-
-	~OptiTrack();
-
-	typedef std::chrono::duration<int, std::ratio<1, Fps>> FrameTime;
-
-	bool openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address = kOptiTrackServerIp225a);
-	void closeConnection();
-
-	bool openCsv(const std::string& filename);
-	void closeCsv();
-
-	bool getFrame();
-
-	int frameNum() {
-		return t_frame_.count();
-	};
-
-	long double frameTime() {
-		return std::chrono::duration<long double>(t_frame_).count();
-	};
-
-	std::vector<Eigen::Vector3f> pos_rigid_bodies_;
-	std::vector<Eigen::Quaternionf, Eigen::aligned_allocator<Eigen::Quaternionf>> ori_rigid_bodies_;
-	std::vector<Eigen::Vector3f> pos_single_markers_;
-
-	FrameTime t_frame_;
-
-private:
-
-	enum MarkerType {
-		RIGID_BODY_POSITION,
-		RIGID_BODY_ORIENTATION,
-		SINGLE_MARKER_POSITION,
-		OTHER
-	};
-
-	bool readNetworkFrame();
-	bool readCsvFrame();
-
-	// Listener threads
-	std::unique_ptr<CommandListener> command_listener_;
-	std::unique_ptr<FrameListener> frame_listener_;
-
-	// Socket descriptors
-	int sd_data_;
-	int sd_command_;
-
-	// CSV variables
-	std::ifstream csv_file_;
-	std::vector<MarkerType> marker_types_;
-	int num_single_marker_ids_;
-
-	// Timer
-	bool t_initialized_ = false;
-	std::chrono::high_resolution_clock::time_point t_start_;
-	FrameTime t_frame_next_;
-	int num_frame_start_ = 0;
-};
-
-/*** NOTE: Template definitions need to be placed in header file. ***/
-
-template <int Fps>
-OptiTrack<Fps>::~OptiTrack(){
+OptiTrackClient::~OptiTrackClient() {
 	closeConnection();
 	closeCsv();
-};
+}
 
-template <int Fps>
-bool OptiTrack<Fps>::openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address) {
+bool OptiTrackClient::openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address) {
     uint32_t local_address = inet_addr(local_public_ip_address.c_str());
     uint32_t server_address = inet_addr(server_ip_address.c_str());
 
@@ -142,8 +48,7 @@ bool OptiTrack<Fps>::openConnection(const std::string& local_public_ip_address, 
 	return true;
 }
 
-template <int Fps>
-void OptiTrack<Fps>::closeConnection() {
+void OptiTrackClient::closeConnection() {
 	// Wait for threads to finish
 	if (command_listener_) command_listener_->stop();
 	if (frame_listener_) frame_listener_->stop();
@@ -153,10 +58,12 @@ void OptiTrack<Fps>::closeConnection() {
 	// Close sockets
 	close(sd_command_);
 	close(sd_data_);
+
+	// Reset state for next connection
+	resetState();
 }
 
-template <int Fps>
-bool OptiTrack<Fps>::openCsv(const std::string& filename) {
+bool OptiTrackClient::openCsv(const std::string& filename) {
 	csv_file_.open(filename);
 	if (csv_file_.fail()) return false;
 
@@ -172,6 +79,7 @@ bool OptiTrack<Fps>::openCsv(const std::string& filename) {
 	ss_line.str(line);
 	std::getline(ss_line, cell, ',');  // Frame
 	std::getline(ss_line, cell, ',');  // Time
+	marker_types_.clear();
 	while (std::getline(ss_line, cell, ',')) {
 		if (cell == "Rigid Body") {
 			marker_types_.push_back(RIGID_BODY_POSITION);
@@ -250,33 +158,31 @@ bool OptiTrack<Fps>::openCsv(const std::string& filename) {
 	return true;
 }
 
-template <int Fps>
-void OptiTrack<Fps>::closeCsv() {
+void OptiTrackClient::closeCsv() {
 	csv_file_.close();
+	resetState();
 }
 
-template <int Fps>
-bool OptiTrack<Fps>::getFrame() {
+bool OptiTrackClient::getFrame() {
 	if (csv_file_.is_open()) return readCsvFrame();
 	if (command_listener_ && frame_listener_) return readNetworkFrame();
-	// std::cout << "OptiTrack::getFrame(): No open connection or specified csv file." << std::endl;
+	// std::err << "OptiTrackClient::getFrame() : No open connection or specified csv file." << std::endl;
 	return false;
 }
 
-template <int Fps>
-bool OptiTrack<Fps>::readNetworkFrame() {
+bool OptiTrackClient::readNetworkFrame() {
 	// Try to get a new frame from the listener.
 	bool frame_available;
 	MocapFrame frame(frame_listener_->pop(&frame_available).first);
 	if (!frame_available) return false;
 
 	// Get recorded time from frame number
-	int num_frame = frame.frameNum();
+	int t_frame_curr = frame.frameNum();
 	if (!t_initialized_) {
-		num_frame_start_ = num_frame;
+		t_frame_start_ = t_frame_curr;
 		t_initialized_ = true;
 	}
-	t_frame_ = FrameTime(num_frame - num_frame_start_);
+	t_frame_ = t_frame_curr - t_frame_start_;
 
 	// Get rigid bodies
 	std::vector<RigidBody> rigid_bodies = frame.rigidBodies();
@@ -302,8 +208,7 @@ bool OptiTrack<Fps>::readNetworkFrame() {
 	return true;
 }
 
-template <int Fps>
-bool OptiTrack<Fps>::readCsvFrame() {
+bool OptiTrackClient::readCsvFrame() {
 	if (csv_file_.eof()) return false;
 
 	// Check time
@@ -314,15 +219,15 @@ bool OptiTrack<Fps>::readCsvFrame() {
 	} else {
 		// Calculate current frame time
 		auto t_curr = std::chrono::high_resolution_clock::now();
-		FrameTime t_frame_curr = std::chrono::duration_cast<FrameTime>(t_curr - t_start_);
-		int num_frames_diff = t_frame_curr.count() - t_frame_next_.count();
+		size_t t_frame_curr = fps_ * std::chrono::duration_cast<std::chrono::duration<double>>(t_curr - t_start_).count();
+		int num_frames_diff = t_frame_curr - t_frame_next_;
 
 		// Return if not yet time for next frame
 		if (num_frames_diff < 0) return false;
 
 		// Set next frame time
 		t_frame_ = t_frame_next_;
-		t_frame_next_ += FrameTime(1 + num_frames_diff);
+		t_frame_next_ += 1 + num_frames_diff;
 
 		// Fast forward to most recent frame
 		while (num_frames_diff > 0) {
@@ -385,4 +290,8 @@ bool OptiTrack<Fps>::readCsvFrame() {
 	return true;
 }
 
-#endif  // OPTITRACK_H
+void OptiTrackClient::resetState() {
+	t_initialized_ = false;
+	t_frame_ = 0;
+	t_frame_next_ = 1;
+}

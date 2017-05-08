@@ -145,26 +145,24 @@ void DemoProject::initialize() {
 	redis_client_.serverIs(kRedisServerInfo);
 
 	// Set up optitrack
-	optitrack_ = make_unique<OptiTrack225a>();
-	optitrack_->openConnection("172.24.69.199");
-	// optitrack_->openCsv("../resources/optitrack_120.csv");
+	optitrack_ = make_unique<OptiTrackClient>();
+	// optitrack_->openConnection("123.45.67.89");
+	optitrack_->openCsv("../resources/optitrack_120.csv");
 
-	while (true) {
+	// Demo usage for OptiTrackClient
+	// TODO: Remove
+	while (g_runloop) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		if (!optitrack_->getFrame()) continue;
-		cout << optitrack_->frameNum() << " " << optitrack_->frameTime()	 << endl;
-		cout << "Rigid body positions" << endl;
+
+		cout << "Timestamp: " << optitrack_->frameTime() << endl;
+		cout << "Rigid body positions:" << endl;
 		for (auto& pos : optitrack_->pos_rigid_bodies_) {
-			cout << pos.transpose() << endl;
+			cout << '\t' << pos.transpose() << endl;
 		}
-		cout << endl;
-		cout << "Rigid body orientations" << endl;
-		for (auto& ori : optitrack_->ori_rigid_bodies_) {
-			cout << ori.w() << " " << ori.x() << " " << ori.y() << " " << ori.z() << endl;
-		}
-		cout << endl;
-		cout << "Marker positions" << endl;
+		cout << "Marker positions:" << endl;
 		for (auto& pos : optitrack_->pos_single_markers_) {
-			cout << pos.transpose() << endl;
+			cout << '\t' << pos.transpose() << endl;
 		}
 		cout << endl;
 	}
