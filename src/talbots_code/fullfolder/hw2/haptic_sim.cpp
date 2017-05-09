@@ -316,6 +316,7 @@ void control(Model::ModelInterface* robot, Simulation::SimulationInterface* sim)
 				vandw << LinearVelocity, RotationVelocity;
 				robot->dynConsistentInverseJacobian(Jbar, J);
 				tau = J.transpose() * (L * (-kpx * (posandrot) - kvx * vandw )) + p + robot->_M * (-kvj * robot->_dq);
+				//tau = Eigen::VectorXd::Zero(6);
 				// tau = p;
 				break;
 			case PART3:
