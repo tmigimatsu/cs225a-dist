@@ -44,3 +44,9 @@ build_dbg
 external/*
 sai2-simulation
 resources
+
+# 3D Models
+*.dae
+*.mtl
+*.stl
+*.obj
