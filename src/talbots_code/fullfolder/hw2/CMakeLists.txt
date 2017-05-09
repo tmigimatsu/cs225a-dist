@@ -21,4 +21,5 @@ SET(RESOURCE_DIR ${CS327A_BINARY_DIR}/resources)
 FILE(MAKE_DIRECTORY ${RESOURCE_DIR})
 SET(APP_RESOURCE_DIR ${RESOURCE_DIR}/hw2)
 FILE(MAKE_DIRECTORY ${APP_RESOURCE_DIR})
-FILE(COPY world_1_puma.urdf world_2_iiwa.urdf world_3_iiwa.urdf DESTINATION ${APP_RESOURCE_DIR})
+FILE(COPY world.urdf world_1_puma.urdf world_2_iiwa.urdf world_3_iiwa.urdf DESTINATION ${APP_RESOURCE_DIR})
+
