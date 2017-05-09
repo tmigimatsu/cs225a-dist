@@ -69,13 +69,11 @@ int main(int argc, char** argv) {
 	info.timeout_ = { 1, 500000 }; // 1.5 seconds
 	auto redis_client = RedisClient();
 	redis_client.serverIs(info);
-
+	sleep(1); // Just a hack to ensure q's,dq's are set before controller loads them
 	// Load robot
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 	robot->updateModel();
 	const int dof = robot->dof();
-	cout << "DOF" << endl;
-	cout << dof << endl;
 	// Create a loop timer
 	const double control_freq = 1000;
 	LoopTimer timer;
@@ -96,6 +94,7 @@ int main(int argc, char** argv) {
 	x_des << 0.5, 0, 0.8;
 
 	redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
+
 	q_des = robot->_q;
 
 	int kp_pos = 200;
@@ -103,7 +102,7 @@ int main(int argc, char** argv) {
 	int kp_ori = 50;
 	int kv_ori = 10;
 	int kv_joint = 8;
-	int kp_joint = 25;
+	int kp_joint = 30;
 	string redis_buf;
 	robot->position(x_initial, "right_l6", Eigen::Vector3d::Zero());
 	robot->rotation(R_des, "right_l6");
@@ -133,19 +132,20 @@ int main(int argc, char** argv) {
 		robot->orientationError(d_phi, R_des, R);
 		robot->nullspaceMatrix(N, J);
 
-		x_des << -0.1, 0.2 * sin(0.5*M_PI*t_curr) + 0.05, 0.1 + 0.2 * cos(0.5*M_PI*t_curr);
+		x_des << -0.3, 0.2 * sin(0.5*M_PI*t_curr) + 0.05, 0.2 + 0.2 * cos(0.5*M_PI*t_curr);
 		x_des += x_initial;
 
-		// Send end effector position
+		// Send end effector position for trajectory visualization
 		redis_client.setEigenMatrixDerivedString(EE_POSITION_KEY, x);
 		
+		// Orientation and position controller with pose and damping in the nullspace
 		dw = -kp_ori * d_phi - kv_ori * w;
 		ddx = -kp_pos * (x - x_des) - kv_pos * dx;
 		ddx_dw << dw, ddx;
 		F = Lambda * ddx_dw;
-		nullspace_damping = N.transpose() * robot->_M * (kp_joint * (q_des - robot->_q)-kv_joint * robot->_dq);
+		nullspace_damping = N.transpose() * robot->_M * (kp_joint * (q_des - robot->_q) - kv_joint * robot->_dq);
 		command_torques = J.transpose() * F + nullspace_damping + g;
-
+		
 		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 	}
 	

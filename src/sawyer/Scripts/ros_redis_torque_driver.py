@@ -10,14 +10,15 @@ from intera_interface import CHECK_VERSION
 import redis, math
 
 class TorqueDriver(object):
-    def __init__(self, limb = "right"):
+    def __init__(self, limb="right"):
         # control parameters
         self._rate = 2500.0  # Hz
         self._missed_cmds = 20.0  # Missed cycles before triggering timeout
 
         # create our limb instance
         self._limb = intera_interface.Limb(limb)
-        self._limb_names = ['right_j0', 'right_j1', 'right_j2', 'right_j3', 'right_j4', 'right_j5', 'right_j6'] 
+        self._limb_names = ['right_j0', 'right_j1', 'right_j2', \
+                            'right_j3', 'right_j4', 'right_j5', 'right_j6']
 
         # custom params
         self._springs = dict()
@@ -28,9 +29,9 @@ class TorqueDriver(object):
         # initialize redis instance
         self._redis = redis.StrictRedis(host='localhost', port=6379, db=0)
 
-        # create cuff disable publisher
-        cuff_ns = 'robot/limb/' + limb + '/suppress_cuff_interaction'
-        self._pub_cuff_disable = rospy.Publisher(cuff_ns, Empty, queue_size=1)
+        # create cuff disable publisher ( Used to disable cuff button gravity comp mode )
+        # cuff_ns = 'robot/limb/' + limb + '/suppress_cuff_interaction'
+        # self._pub_cuff_disable = rospy.Publisher(cuff_ns, Empty, queue_size=1)
 
         # verify robot is enabled
         print("Getting robot state... ")
@@ -43,8 +44,8 @@ class TorqueDriver(object):
     def _update_forces(self):
         # Syncs between redis and ROS the joint torque and q, dq values
 
-        # disable cuff interaction
-        self._pub_cuff_disable.publish()
+        # disable cuff interaction ( Used to disable cuff button gravity comp mode )
+        # self._pub_cuff_disable.publish()
 
         # create our command dict
         cmd = dict()
@@ -61,21 +62,28 @@ class TorqueDriver(object):
         # Reads and tokenizes to a list of torques (t0,t1,t2,t3,t4,t5,t6)
         redis_forces = self._redis.get('cs225a::robot::sawyer::sensors::fgc')
         if redis_forces is not None:
-            redis_forces = redis_forces.split(str=" ", num = 1)
-            for force in redis_forces:
-                if(force.isnan()):
-                    print('nooooo')
-                    # Do Something!
-  
-        for limb_name in self._limb_names:
-            print(limb_name)
+            redis_forces = redis_forces.split(str=" ", num=1)
+            for i in range(0, 7):
+                if redis_forces[i].isnan():
+                    cmd[self._limb_names[i]] = 0
+                else:
+                    cmd[self._limb_names[i]] = redis_forces[i]
 
-        # calculate current forces
-        for joint in self._start_angles.keys():
-            # spring portion
-            cmd[joint] = 0 * (self._start_angles[joint] - cur_pos[joint])
-            # damping portion
-            cmd[joint] -= 0 * cur_vel[joint]
+
+        q_str_redis = ""
+        dq_str_redis = ""
+        # Set the q's and dq's to redis
+        for joint in self._limb_names:
+            if joint is "right_j6":
+                q_str_redis += str(cur_pos[joint])
+                dq_str_redis += str(cur_vel[joint])
+            else:
+                q_str_redis += str(cur_pos[joint]) + " "
+                dq_str_redis += str(cur_vel[joint]) + " "
+
+        self._redis.set('cs225a::robot::sawyer::sensors::q', q_str_redis)
+        self._redis.set('cs225a::robot::sawyer::sensors::dq', dq_str_redis)
+
         # command new joint torques
         self._limb.set_joint_torques(cmd)
 
@@ -126,11 +134,11 @@ def main():
     # Starting node connection to ROS
     print("Initializing node... ")
     rospy.init_node("torque_driver_{0}".format(valid_limbs[0]))
-    js = TorqueDriver(limb=valid_limbs[0])
+    driver = TorqueDriver(limb=valid_limbs[0])
     # register shutdown callback
-    rospy.on_shutdown(js.clean_shutdown)
-    js.move_to_neutral()
-    js.joint_torque_enable()
+    rospy.on_shutdown(driver.clean_shutdown)
+    driver.move_to_neutral()
+    driver.joint_torque_enable()
 
 
 if __name__ == "__main__":
