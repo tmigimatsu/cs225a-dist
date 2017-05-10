@@ -6,7 +6,7 @@
     <visual>
         <origin rpy="1.57079632679 0 -1.57079632679" xyz="0.26 0.345 -0.91488"/>
         <geometry>
-          <mesh filename="meshes/pedestal.obj"/>
+          <mesh filename="sawyer_graphics/pedestal.obj"/>
         </geometry>
     </visual>
     <inertial>
@@ -31,7 +31,7 @@
     <visual>
       <origin rpy="1.57 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/base.obj"/>
+        <mesh filename="sawyer_graphics/base.obj"/>
       </geometry>
     </visual>
   </link>
@@ -45,7 +45,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l0.obj"/>
+        <mesh filename="sawyer_graphics/l0.obj"/>
       </geometry>
     </visual>
   </link>
@@ -67,7 +67,7 @@
     <visual>
       <origin rpy="1.57 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/head.obj"/>
+        <mesh filename="sawyer_graphics/head.obj"/>
       </geometry>
     </visual>
   </link>
@@ -89,7 +89,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l1.obj"/>
+        <mesh filename="sawyer_graphics/l1.obj"/>
       </geometry>
     </visual>
   </link>
@@ -111,7 +111,7 @@
     <visual>
       <origin rpy="1.57 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l2.obj"/>
+        <mesh filename="sawyer_graphics/l2.obj"/>
       </geometry>
     </visual>
   </link>
@@ -133,7 +133,7 @@
     <visual>
       <origin rpy="1.57 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l3.obj"/>
+        <mesh filename="sawyer_graphics/l3.obj"/>
       </geometry>
     </visual>
   </link>
@@ -155,7 +155,7 @@
     <visual>
       <origin rpy="1.57 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l4.obj"/>
+        <mesh filename="sawyer_graphics/l4.obj"/>
       </geometry>
     </visual>
   </link>
@@ -177,7 +177,7 @@
     <visual>
       <origin rpy="1.57 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l5.obj"/>
+        <mesh filename="sawyer_graphics/l5.obj"/>
       </geometry>
     </visual>
   </link>
@@ -211,7 +211,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/l6.obj"/>
+        <mesh filename="sawyer_graphics/l6.obj"/>
       </geometry>
     </visual>
   </link>

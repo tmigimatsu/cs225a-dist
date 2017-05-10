@@ -69,7 +69,11 @@ int main(int argc, char** argv) {
 	info.timeout_ = { 1, 500000 }; // 1.5 seconds
 	auto redis_client = RedisClient();
 	redis_client.serverIs(info);
-	sleep(1); // Just a hack to ensure q's,dq's are set before controller loads them
+
+	// sleep(1); // Just a hack to ensure q's,dq's are set before controller loads them
+	// Note: timer.initializeTimer() also pauses before first call to
+	// timer.waitForNextLoop(). Just need to set q_des after that call.
+
 	// Load robot
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 	robot->updateModel();

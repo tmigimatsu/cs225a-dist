@@ -24,7 +24,6 @@ class TorqueDriver(object):
         self._springs = dict()
         self._damping = dict()
         self._start_angles = dict()
-        self.once = True
 
         # initialize redis instance
         self._redis = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -41,6 +40,12 @@ class TorqueDriver(object):
         self._rs.enable()
         print("Running. Ctrl-c to quit")
 
+        # setup timestamp timer
+        self._t = rospy.Time()
+
+        # reset redis torque values so torque values aren't random
+        self._redis.set('cs225a::robot::sawyer::sensors::fgc','0 0 0 0 0 0 0')
+
     def _update_forces(self):
         # Syncs between redis and ROS the joint torque and q, dq values
 
@@ -49,6 +54,8 @@ class TorqueDriver(object):
 
         # create our command dict
         cmd = dict()
+        for limb in self._limb_names:
+            cmd[limb] = 0
 
         # record current angles/velocities
         cur_pos = self._limb.joint_angles()
@@ -64,25 +71,24 @@ class TorqueDriver(object):
         if redis_forces is not None:
             redis_forces = redis_forces.split(str=" ", num=1)
             for i in range(0, 7):
-                if redis_forces[i].isnan():
-                    cmd[self._limb_names[i]] = 0
-                else:
-                    cmd[self._limb_names[i]] = redis_forces[i]
-
+                force_float = float(redis_forces[i])
+                if not math.isnan(force_float):
+                    cmd[self._limb_names[i]] = force_float
 
         q_str_redis = ""
         dq_str_redis = ""
         # Set the q's and dq's to redis
         for joint in self._limb_names:
-            if joint is "right_j6":
-                q_str_redis += str(cur_pos[joint])
-                dq_str_redis += str(cur_vel[joint])
-            else:
-                q_str_redis += str(cur_pos[joint]) + " "
-                dq_str_redis += str(cur_vel[joint]) + " "
+            q_str_redis += str(cur_pos[joint]) + " "
+            dq_str_redis += str(cur_vel[joint]) + " "
+        q_str_redis = q_str_redis[:-1] # Delete last character (space)
+        dq_str_redis = dq_str_redis[:-1]
 
         self._redis.set('cs225a::robot::sawyer::sensors::q', q_str_redis)
         self._redis.set('cs225a::robot::sawyer::sensors::dq', dq_str_redis)
+
+        # Set timestamp
+        self._redis.set('cs225a::robot::sawyer::timestamp', str(self._t.to_sec()))
 
         # command new joint torques
         self._limb.set_joint_torques(cmd)

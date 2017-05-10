@@ -29,6 +29,11 @@ if [ ! -d "kuka_iiwa_graphics" ]; then
 	unzip kuka_iiwa_graphics.zip
 	rm kuka_iiwa_graphics.zip
 fi
+if [ ! -d "sawyer_graphics" ]; then
+	curl -L http://cs.stanford.edu/groups/manips/teaching/cs225a/resources/sawyer_graphics.zip -o sawyer_graphics.zip
+	unzip sawyer_graphics.zip
+	rm sawyer_graphics.zip
+fi
 cd ..
 
 cd bin
@@ -57,6 +62,13 @@ if [ -f "demo_project" ]; then
 	cd resources/demo_project
 	if [ ! -e "kuka_iiwa_graphics" ]; then
 		ln -s ../../../resources/kuka_iiwa_graphics .
+	fi
+	cd ../..
+fi
+if [ -f "sawyer" ]; then
+	cd resources/sawyer
+	if [ ! -e "sawyer_graphics" ]; then
+		ln -s ../../../resources/sawyer_graphics .
 	fi
 	cd ../..
 fi
