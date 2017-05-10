@@ -10,26 +10,192 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-
-using std::cout;
-using std::string;
-using std::runtime_error;
+#include <vector>
 
 struct HiredisServerInfo {
-public:
-    string hostname_;
+	std::string hostname_;
     int port_;
     timeval timeout_;
 };
 
 class RedisClient {
+
 public:
-	RedisClient ()
-		: context_(NULL),
-		reply_(NULL)
-	{// do nothing
+	RedisClient () :
+		context_(nullptr),
+		reply_(nullptr)
+	{
+		// Do nothing
 	}
 
+	HiredisServerInfo server_info_;
+	redisContext *context_;
+    redisReply *reply_;
+	//TODO: decide if needed. Currently, we throw up if server disconnects
+	//bool connected_;
+
+	/**
+	 * Perform Redis command: GET key.
+	 *
+	 * @param key  Key to get from Redis (entry must be String type).
+	 * @return     String value.
+	 */
+	std::string get(const std::string& key);
+
+	/**
+	 * Perform Redis command: SET key value.
+	 *
+	 * @param key    Key to set in Redis.
+	 * @param value  Value for key.
+	 */
+	void set(const std::string& key, const std::string& value);
+
+	/**
+	 * Perform Redis command: MGET key1 key2...
+	 *
+	 * MGET gets multiple keys as an atomic operation. See:
+	 * https://redis.io/commands/mget
+	 *
+	 * In C++11, this function can be called with brace initialization:
+	 * redis_client.mset({"key1", "key2"});
+	 * 
+	 * @param keys  Vector of keys to get from Redis.
+	 * @return      Vector of retrieved values. Optimized with RVO.
+	 */
+	std::vector<std::string> mget(const std::vector<std::string>& keys);
+
+	/**
+	 * Perform Redis command: MSET key1 val1 key2 val2...
+	 *
+	 * MSET sets multiple keys as an atomic operation. See:
+	 * https://redis.io/commands/mset
+	 *
+	 * In C++11, this function can be called with brace initialization:
+	 * redis_client.mset({{"key1", "val1"}, {"key2", "val2"}});
+	 * 
+	 * @param keyvals  Vector of key-value pairs to set in Redis.
+	 */
+	void mset(const std::vector<std::pair<std::string, std::string>>& keyvals);
+
+	/**
+ 	 * Encode Eigen::MatrixXd as JSON string.
+	 *
+	 * For example:
+	 *   [1,2,3,4]     => "[1,2,3,4]"
+	 *   [[1,2],[3,4]] => "[[1,2],[3,4]]"
+	 *
+	 * @param matrix  Eigen::MatrixXd to encode.
+	 * @return        Encoded string.
+	 */
+	template<typename Derived>
+	static std::string encodeEigenMatrixJSON(const Eigen::MatrixBase<Derived>& matrix) {
+		std::string s;
+		hEigenToStringArrayJSON(matrix, s);
+		return s;
+	}
+
+	/**
+ 	 * Decode Eigen::MatrixXd from space-delimited string.
+	 *
+	 * For example:
+	 *   "[1,2,3,4]"     => [1,2,3,4]
+	 *   "[[1,2],[3,4]]" => [[1,2],[3,4]]
+	 *
+	 * @param str  String to decode.
+	 * @return     Decoded Eigen::Matrix.
+	 */
+	static Eigen::MatrixXd decodeEigenMatrixJSON(const std::string& str) {
+		Eigen::MatrixXd matrix;
+		hEigenFromStringArrayJSON(matrix, str);
+		return matrix;
+	}
+
+	/**
+ 	 * Encode Eigen::MatrixXd as space-delimited string.
+	 *
+	 * For example:
+	 *   [1,2,3,4]     => "1 2 3 4"
+	 *   [[1,2],[3,4]] => "1 2; 3 4"
+	 *
+	 * @param matrix  Eigen::MatrixXd to encode.
+	 * @return        Encoded string.
+	 */
+	template<typename Derived>
+	static std::string encodeEigenMatrixString(const Eigen::MatrixBase<Derived>& matrix) {
+		std::string s;
+		hEigenToStringArrayCustom(matrix, s);
+		return s;
+	}
+
+	/**
+ 	 * Decode Eigen::MatrixXd from space-delimited string.
+	 *
+	 * For example:
+	 *   "1 2 3 4"  => [1,2,3,4]
+	 *   "1 2; 3 4" => [[1,2],[3,4]]
+	 *
+	 * @param str  String to decode.
+	 * @return     Decoded Eigen::Matrix.
+	 */
+	static Eigen::MatrixXd decodeEigenMatrixString(const std::string& str) {
+		Eigen::MatrixXd matrix;
+		hEigenFromStringArrayCustom(matrix, str);
+		return matrix;
+	}
+
+	/**
+	 * Get Eigen::MatrixXd from Redis as JSON string.
+	 *
+	 * @param key  Key to get from Redis.
+	 * @return     Value as Eigen::MatrixXd. Optimized with RVO.
+	 */
+	Eigen::MatrixXd getEigenMatrixJSON(const std::string& key) {
+		std::string str = get(key);
+		return decodeEigenMatrixJSON(str);
+		// Eigen::MatrixBase<Derived> matrix;
+		// hEigenFromStringArrayJSON(matrix, str);
+		// return matrix;
+	}
+
+	/**
+	 * Set Eigen::MatrixXd in Redis as JSON string
+	 *
+	 * @param key    Key to set in Redis.
+	 * @param value  Value for key.
+	 */
+	template<typename Derived>
+	void setEigenMatrixJSON(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
+		std::string str = encodeEigenMatrixJSON(value);
+		set(key, str);
+	}
+
+	/**
+	 * Get Eigen::MatrixXd from Redis as space-delimited string.
+	 *
+	 * @param key  Key to get from Redis.
+	 * @return     Value as Eigen::MatrixXd. Optimized with RVO.
+	 */
+	Eigen::MatrixXd getEigenMatrixString(const std::string& key) {
+		std::string str = get(key);
+		return decodeEigenMatrixString(str);
+		// Eigen::MatrixBase<Derived> matrix;
+		// hEigenFromStringArrayCustom(matrix, str);
+		// return matrix;
+	}
+
+	/**
+	 * Set Eigen::MatrixXd in Redis as space-delimited string
+	 *
+	 * @param key    Key to set in Redis.
+	 * @param value  Value for key.
+	 */
+	template<typename Derived>
+	void setEigenMatrixString(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
+		std::string str = encodeEigenMatrixString(value);
+		set(key, str);
+	}
+
+public:
 	// init with server info
 	void serverIs(HiredisServerInfo server) {
 		// delete existing connection
@@ -45,41 +211,40 @@ public:
 		// connect to new server
 		auto tmp_context = redisConnectWithTimeout(server.hostname_.c_str(), server.port_, server.timeout_);
         if (NULL == tmp_context) {
-        	throw(runtime_error("Could not allocate redis context."));
+        	throw(std::runtime_error("Could not allocate redis context."));
         }
     	if (tmp_context->err) {
-			std::string err = string("Could not connect to redis server : ") + string(tmp_context->errstr);
+			std::string err = std::string("Could not connect to redis server : ") + std::string(tmp_context->errstr);
 			redisFree(tmp_context);
-			throw(runtime_error(err.c_str()));
+			throw(std::runtime_error(err.c_str()));
         }
     	// set context, ping server
     	context_ = tmp_context;
 	}
 
-public:
 	// set expiry (ms) on an existing db key
-	void keyExpiryIs(const string& key, const uint expiry_ms) {
+	void keyExpiryIs(const std::string& key, const uint expiry_ms) {
 		reply_ = (redisReply *)redisCommand(context_, "PEXPIRE %s %s", key.c_str(), std::to_string(expiry_ms).c_str());
 		// NOTE: write commands dont check for write errors.
 		freeReplyObject((void*)reply_);
 	}
 
 	// get command, without return string. for internal use primarily.
-	bool getCommandIs(const string &cmd_mssg) {
+	bool getCommandIs(const std::string &cmd_mssg) {
 		reply_ = (redisReply *)redisCommand(context_, "GET %s", cmd_mssg.c_str());
 		if (NULL == reply_ || REDIS_REPLY_ERROR == reply_->type) {
-			throw(runtime_error("Server error in fetching data!"));
+			throw(std::runtime_error("Server error in fetching data!"));
 			//TODO: indicate what error
 		}
 		if (REDIS_REPLY_NIL == reply_->type) {
-			// cout << "\nNo data on server.. Missing key?";
+			// std::cout << "\nNo data on server.. Missing key?";
 			return false;
 		}
 		return true;
 	}
 
 	// get command, with string return
-	bool getCommandIs(const string &cmd_mssg, string& ret_data) {
+	bool getCommandIs(const std::string &cmd_mssg, std::string& ret_data) {
 		bool success = getCommandIs(cmd_mssg);
 		if (success) {
 			ret_data = reply_->str;
@@ -87,7 +252,7 @@ public:
 		return success;
 	}
 
-	void setCommandIs(const string &cmd_mssg, const string &data_mssg) {
+	void setCommandIs(const std::string &cmd_mssg, const std::string &data_mssg) {
 		reply_ = (redisReply *)redisCommand(context_, "SET %s %s", cmd_mssg.c_str(), data_mssg.c_str());
 		// NOTE: set commands dont check for write errors.
       	freeReplyObject((void*)reply_);
@@ -95,8 +260,8 @@ public:
 
 	// write raw eigen vector
 	template<typename Derived>
-	void setEigenMatrixDerived(const string &cmd_mssg, const Eigen::MatrixBase<Derived> &set_mat) {
-		string data_mssg;
+	void setEigenMatrixDerived(const std::string &cmd_mssg, const Eigen::MatrixBase<Derived> &set_mat) {
+		std::string data_mssg;
 		// serialize
 		hEigentoStringArrayJSON(set_mat, data_mssg); //this never fails
 		// set to server
@@ -105,8 +270,8 @@ public:
 
     // write raw eigen vector, but in custom string format
     template<typename Derived>
-    void setEigenMatrixDerivedString(const string &cmd_mssg, const Eigen::MatrixBase<Derived> &set_mat) {
-    	string data_mssg;
+    void setEigenMatrixDerivedString(const std::string &cmd_mssg, const Eigen::MatrixBase<Derived> &set_mat) {
+		std::string data_mssg;
 		// serialize
 		hEigenToStringArrayCustom(set_mat, data_mssg);
 		// set to server
@@ -115,22 +280,22 @@ public:
 
 	// read raw eigen vector:
 	template<typename Derived>
-	void getEigenMatrixDerived(const string &cmd_mssg, Eigen::MatrixBase<Derived> &ret_mat) {
+	void getEigenMatrixDerived(const std::string &cmd_mssg, Eigen::MatrixBase<Derived> &ret_mat) {
 		auto success = getCommandIs(cmd_mssg);
 		// deserialize
 		if(success && !hEigenFromStringArrayJSON(ret_mat, reply_->str)) {
-			throw(runtime_error("Could not deserialize json to eigen data!"));
+			throw(std::runtime_error("Could not deserialize json to eigen data!"));
 		}
 		freeReplyObject((void*)reply_);	
 	}
 
 	// read raw eigen vector, but from a custom string rather than from json
 	template<typename Derived>
-	void getEigenMatrixDerivedString(const string &cmd_mssg, Eigen::MatrixBase<Derived> &ret_mat) {
+	void getEigenMatrixDerivedString(const std::string &cmd_mssg, Eigen::MatrixBase<Derived> &ret_mat) {
 		auto success = getCommandIs(cmd_mssg);
 		// deserialize
 		if(success && !hEigenFromStringArrayCustom(ret_mat, reply_->str)) {
-			throw(runtime_error("Could not deserialize custom string to eigen data!"));
+			throw(std::runtime_error("Could not deserialize custom string to eigen data!"));
 		}
 		freeReplyObject((void*)reply_);	
 	}
@@ -139,34 +304,23 @@ public: // server connectivity tools
 	void ping() {
 		// PING server to make sure things are working..
         reply_ = (redisReply *)redisCommand(context_,"PING");
-        cout<<"\n\nDriver Redis Task : Pinged Redis server. Reply is, "<<reply_->str<<"\n";
+		std::cout<<"\n\nDriver Redis Task : Pinged Redis server. Reply is, "<<reply_->str<<"\n";
         freeReplyObject((void*)reply_);
 	}
 
-public:
-	HiredisServerInfo server_info_;
-	redisContext *context_;
-    redisReply *reply_;
-	//TODO: decide if needed. Currently, we throw up if server disconnects
-	//bool connected_;
 protected:
 	template<typename Derived>
-	bool hEigentoStringArrayJSON(const Eigen::MatrixBase<Derived> &, std::string &);
+	static bool hEigentoStringArrayJSON(const Eigen::MatrixBase<Derived> &, std::string &);
 
 	template<typename Derived>
-	bool hEigenFromStringArrayJSON(Eigen::MatrixBase<Derived> &, const std::string &);
+	static bool hEigenFromStringArrayJSON(Eigen::MatrixBase<Derived> &, const std::string &);
 
 	template<typename Derived>
-	bool hEigenToStringArrayCustom(const Eigen::MatrixBase<Derived> &, std::string &);
+	static bool hEigenToStringArrayCustom(const Eigen::MatrixBase<Derived> &, std::string &);
 
 	template<typename Derived>
-	bool hEigenFromStringArrayCustom(Eigen::MatrixBase<Derived> &, const std::string &);
+	static bool hEigenFromStringArrayCustom(Eigen::MatrixBase<Derived> &, const std::string &);
 
-private:
-	// internal function. prepends robot name to command
-	static inline string robotCmd(string robot_name, string cmd) {
-		return robot_name + ":" + cmd;
-	}
 };
 
 //Implementation must be part of header for compile time template specialization
@@ -293,13 +447,13 @@ bool RedisClient::hEigenToStringArrayCustom(const Eigen::MatrixBase<Derived>& x,
 template<typename Derived>
 bool RedisClient::hEigenFromStringArrayCustom(Eigen::MatrixBase<Derived>& x, const std::string &arg_str)
 {
-	string copy_str = arg_str;
+	std::string copy_str = arg_str;
 	unsigned int nrows = std::count(arg_str.begin(), arg_str.end(), ';') + 1;
 	unsigned int ncols = (std::count(arg_str.begin(), arg_str.end(), ' ') + 1)/nrows;
 	std::replace(copy_str.begin(), copy_str.end(), ';', ' ');
 
     std::stringstream ss(copy_str);
-    
+
     if(nrows < 1) return false; //Must have elements.
 
 	bool is_matrix = (nrows > 1);
