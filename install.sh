@@ -95,9 +95,11 @@ cd ../..
 # Install Chai3d
 # --------------
 
-curl -L http://www.chai3d.org/download/chai3d-3.2.0-CMake.zip -o chai3d-3.2.0.zip
-unzip chai3d-3.2.0.zip
-mv chai3d-3.2.0 chai3d
+# TODO: Make this a git submodule
+git clone https://github.com/chai3d/chai3d chai3d
+# curl -L http://www.chai3d.org/download/chai3d-3.2.0-CMake.zip -o chai3d-3.2.0.zip
+# unzip chai3d-3.2.0.zip
+# mv chai3d-3.2.0 chai3d
 cd chai3d
 mkdir build_rel
 cd build_rel
