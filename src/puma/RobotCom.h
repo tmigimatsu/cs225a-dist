@@ -5,6 +5,7 @@
 #include "unitMsg.h"
 #include "cs225.h"
 
+namespace Puma {
 
 class RobotCom {
 public:
@@ -67,6 +68,8 @@ inline int RobotCom::InitByteCounter()
 {
   byteCounter_ = 4; // 2*sizeof(short);
   return byteCounter_;
+}
+
 }
 
 #endif // _ROBOT_COM_H_

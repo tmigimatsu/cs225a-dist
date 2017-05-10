@@ -1,6 +1,6 @@
 ################Initialize the Cmake Defaults#################
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.1)
 
 #Name the project
 project (puma_driver)
@@ -11,14 +11,14 @@ set (CMAKE_VERBOSE_MAKEFILE ON)
 ################Initialize the executable#################
 
 #Set the compilation flags
-set (CMAKE_CXX_FLAGS "-std=c++14")
+SET(CMAKE_CXX_STANDARD 14)
+SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set (CS225A_COMMON_SOURCE
 	${PROJECT_SOURCE_DIR}/../redis/RedisClient.cpp
 	${PROJECT_SOURCE_DIR}/../timer/LoopTimer.cpp
 )
 include_directories (${PROJECT_SOURCE_DIR}/..)
-message (STATUS ${CS225A_COMMON_SOURCE})
 
 #Set all the sources required for the library
 set (PUMA_DRIVER_SOURCE

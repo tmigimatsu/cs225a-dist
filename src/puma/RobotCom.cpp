@@ -14,6 +14,7 @@
 
 #endif //not Win32
 using namespace std;
+using namespace Puma;
 
 static const string DEFAULT_SERVER = "192.168.2.2"; //youbot server
 

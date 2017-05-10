@@ -18,6 +18,7 @@
 #ifndef _cs225_h
 #define _cs225_h
 
+namespace Puma {
 // Messages sent from the UI to the servo via the ServoAgent class
 
 enum UiToServoMessageType {
@@ -173,5 +174,7 @@ enum Fifos {
   RT_TO_UI_FIFO,
   UI_TO_RT_FIFO
 };
+
+}
 
 #endif /* cs225.h */
