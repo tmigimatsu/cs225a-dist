@@ -10,6 +10,7 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
+#include <vector>
 
 struct HiredisServerInfo {
 	std::string hostname_;
@@ -61,7 +62,7 @@ public:
 	 * @param keys  Vector of keys to get from Redis.
 	 * @return      Vector of retrieved values. Optimized with RVO.
 	 */
-	std::vector<std::string> mget(const std::vector<const std::string>& keys);
+	std::vector<std::string> mget(const std::vector<std::string>& keys);
 
 	/**
 	 * Perform Redis command: MSET key1 val1 key2 val2...
@@ -74,7 +75,7 @@ public:
 	 * 
 	 * @param keyvals  Vector of key-value pairs to set in Redis.
 	 */
-	void mset(const std::vector<const std::pair<const std::string, const std::string>>& keyvals);
+	void mset(const std::vector<std::pair<std::string, std::string>>& keyvals);
 
 	/**
  	 * Encode Eigen::MatrixXd as JSON string.

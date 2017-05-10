@@ -33,10 +33,10 @@ void RedisClient::set(const std::string& key, const std::string& value) {
 	freeReplyObject(reply_);
 }
 
-std::vector<std::string> RedisClient::mget(const std::vector<const std::string>& keys) {
+std::vector<std::string> RedisClient::mget(const std::vector<std::string>& keys) {
 	// Prepare key list
 	std::vector<const char *> argv = {"MGET"};
-	for (auto& key : keys) {
+	for (const auto& key : keys) {
 		argv.push_back(key.c_str());
 	}
 
@@ -59,7 +59,7 @@ std::vector<std::string> RedisClient::mget(const std::vector<const std::string>&
 			throw(std::runtime_error("MGET command returned non-string values."));
 		}
 
-		values.push_back(reply_->element[i]->str);
+		values.push_back(std::string(reply_->element[i]->str));
 	}
 
 	// Return values
@@ -67,10 +67,10 @@ std::vector<std::string> RedisClient::mget(const std::vector<const std::string>&
 	return values;
 }
 
-void RedisClient::mset(const std::vector<const std::pair<const std::string, const std::string>>& keyvals) {
+void RedisClient::mset(const std::vector<std::pair<std::string, std::string>>& keyvals) {
 	// Prepare key-value list
 	std::vector<const char *> argv = {"MSET"};
-	for (auto& keyval : keyvals) {
+	for (const auto& keyval : keyvals) {
 		argv.push_back(keyval.first.c_str());
 		argv.push_back(keyval.second.c_str());
 	}
