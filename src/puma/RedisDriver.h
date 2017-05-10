@@ -108,6 +108,7 @@ public:
 		kv_str_ = RedisClient::encodeEigenMatrixString(kv_);
 	}
 
+	// Constants
 	const int kControlFreq = 1000;         // 1kHz control loop
 	const int kInitializationPause = 1e6;  // 1ms pause before starting control loop
 	const int kDefaultKp = 400;
@@ -121,21 +122,28 @@ public:
 		{ 1, 500000 } // timeout = 1.5 seconds
 	};
 
+	// Connect to Puma server and initialize Redis client/timer
 	void init();
+
+	// Run driver in a loop
 	void run();
 
-	volatile bool runloop_ = true;
-
-	void eigenVectorFromBuffer(Eigen::VectorXd& vector);
-	void eigenVectorToBuffer(const Eigen::VectorXd& vector);
-
+	// The following need to be public so that the ctrl-c handler can call
+	// puma_robot_->_break() and set runloop_ = false.
 	std::unique_ptr<RobotCom> puma_robot_;
+	volatile bool runloop_ = true;
 
 protected:
 
-	LoopTimer timer_;
-	RedisClient redis_client_;
+	// Convert between data_buffer_ and Eigen::VectorXd
+	void eigenVectorFromBuffer(Eigen::VectorXd& vector);
+	void eigenVectorToBuffer(const Eigen::VectorXd& vector);
 
+	// Redis client and timer
+	RedisClient redis_client_;
+	LoopTimer timer_;
+
+	// Controller variables
 	ControlMode control_mode_ = kDefaultControlMode;
 	Eigen::VectorXd command_data_;
 	Eigen::VectorXd q_;
@@ -146,6 +154,7 @@ protected:
 	std::string kp_str_;
 	std::string kv_str_;
 
+	// Buffer of data for communication with Puma
 	float data_buffer_[SIZE_OP_SPACE_TASK] = {0};
 
 };
