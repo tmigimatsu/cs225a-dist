@@ -7,7 +7,7 @@ from std_msgs.msg import Empty
 import intera_interface
 from intera_interface import CHECK_VERSION
 
-import redis, math
+import redis, math, time
 
 class TorqueDriver(object):
     def __init__(self, limb="right"):
@@ -40,11 +40,11 @@ class TorqueDriver(object):
         self._rs.enable()
         print("Running. Ctrl-c to quit")
 
-        # setup timestamp timer
-        self._t = rospy.Time()
-
         # reset redis torque values so torque values aren't random
-        self._redis.set('cs225a::robot::sawyer::sensors::fgc','0 0 0 0 0 0 0')
+        self._redis.set('cs225a::robot::sawyer::actuators::fgc', '0 0 0 0 0 0 0')
+
+        # get initial time
+        self._start_time = rospy.Time.from_sec(time.time())
 
     def _update_forces(self):
         # Syncs between redis and ROS the joint torque and q, dq values
@@ -67,13 +67,14 @@ class TorqueDriver(object):
         # cs225a::robot::sawyer::sensors::q
 
         # Reads and tokenizes to a list of torques (t0,t1,t2,t3,t4,t5,t6)
-        redis_forces = self._redis.get('cs225a::robot::sawyer::sensors::fgc')
-        if redis_forces is not None:
-            redis_forces = redis_forces.split(str=" ", num=1)
-            for i in range(0, 7):
-                force_float = float(redis_forces[i])
-                if not math.isnan(force_float):
-                    cmd[self._limb_names[i]] = force_float
+        redis_forces = self._redis.get('cs225a::robot::sawyer::actuators::fgc')
+        if redis_forces is not None: # Check if read from redis correctly
+            redis_forces = redis_forces.split(" ")
+            if len(redis_forces) is 7: # Check if 7 forces read
+                for i in range(0, 7):
+                    force_float = float(redis_forces[i])
+                    if not math.isnan(force_float): # Check if force is not NaN
+                        cmd[self._limb_names[i]] = force_float # Set each force into cmd
 
         q_str_redis = ""
         dq_str_redis = ""
@@ -88,10 +89,12 @@ class TorqueDriver(object):
         self._redis.set('cs225a::robot::sawyer::sensors::dq', dq_str_redis)
 
         # Set timestamp
-        self._redis.set('cs225a::robot::sawyer::timestamp', str(self._t.to_sec()))
+        rt = rospy.Time.from_sec(time.time()) - self._start_time
+        self._redis.set('cs225a::robot::sawyer::timestamp', str(rt.to_sec()))
 
         # command new joint torques
         self._limb.set_joint_torques(cmd)
+
 
     def move_to_neutral(self):
         """
@@ -149,3 +152,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
