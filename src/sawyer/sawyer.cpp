@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 	info.timeout_ = { 1, 500000 }; // 1.5 seconds
 	auto redis_client = RedisClient();
 	redis_client.serverIs(info);
-	sleep(0.2); // Just a hack to ensure q's,dq's are set before controller loads them
+
 	// Load robot
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
 	robot->updateModel();
@@ -156,7 +156,7 @@ int main(int argc, char** argv) {
 		ddx_dw << dw, ddx;
 		F = Lambda * ddx_dw;
 		nullspace_damping = N.transpose() * robot->_M * (kp_joint * (q_des - robot->_q) - kv_joint * robot->_dq);
-		command_torques = J.transpose() * F + nullspace_damping; //+ g; // Don't forget to add or remove gravity for real robot
+		command_torques = J.transpose() * F + nullspace_damping + g; // Don't forget to add or remove gravity for real robot
 		// command_torques = robot->_M * (kp_joint * (q_des - robot->_q) - kv_joint * robot->_dq); // Joint Control Law
 
 		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
