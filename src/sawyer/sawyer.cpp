@@ -100,22 +100,25 @@ int main(int argc, char** argv) {
 	q_des = q_initial;	
 
 	int kp_pos = 100;
-	int kv_pos = 20;
-	int kp_ori = 30;
-	int kv_ori = 5;
-	int kv_joint = 5;
-	int kp_joint = 25;
+	int kv_pos = 35;
+	int kp_ori = 100;
+	int kv_ori = 50;
+	int kv_joint = 20;
+	int kp_joint = 30;
 	double kMaxVelocity = 0.3;
 	string redis_buf;
+	double t_curr = 0;
 	robot->position(x_initial, "right_l6", Eigen::Vector3d::Zero());
 	robot->rotation(R_des, "right_l6");
-
 	while (runloop) {
 		timer.waitForNextLoop();
 
 		// Get current simulation timestamp from Redis
 		redis_client.getCommandIs(TIMESTAMP_KEY, redis_buf);
-		double t_curr = stod(redis_buf);
+		if (redis_buf.length() != 0)
+		{
+			t_curr = stod(redis_buf);
+		}
 
 		// read from Redis current sensor values
 		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
