@@ -1,9 +1,12 @@
 /*
  * RedisDriver.h
  *
- *  Created on: May 4, 2017
+ *  Created on: May 8, 2017
  *      Author: Toki Migimatsu
  */
+
+#ifndef PUMA_REDIS_DRIVER_H
+#define PUMA_REDIS_DRIVER_H
 
 #include "RobotCom.h"
 #include "redis/RedisClient.h"
@@ -16,7 +19,6 @@
 #include <Eigen/Core>
 
 namespace Puma {
-
 
 /*************
  * Constants *
@@ -161,3 +163,4 @@ protected:
 
 }
 
+#endif  // PUMA_REDIS_DRIVER_H
