@@ -1,7 +1,6 @@
 #ifndef _ROBOT_COM_H_
 #define _ROBOT_COM_H_
 
-#define BUFFER_SIZE (PR_NETWORK_BUFFER_SIZE + 4)
 #include "unitMsg.h"
 #include "cs225.h"
 

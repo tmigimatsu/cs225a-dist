@@ -17,6 +17,7 @@ using namespace std;
 using namespace Puma;
 
 static const string DEFAULT_SERVER = "192.168.2.2"; //youbot server
+static const int PR_NETWORK_PORT_CONTROL = 8189;
 
 /*********************************************************************
  * RobotCom constructor:  Create a socket connection to the system that
@@ -25,7 +26,7 @@ static const string DEFAULT_SERVER = "192.168.2.2"; //youbot server
 RobotCom::RobotCom()
 {
 	InitByteCounter();
-	bufferSize_ = BUFFER_SIZE; //nbytes + InitByteCounter();
+	bufferSize_ = MAX_MSG_SIZE; //nbytes + InitByteCounter();
 	buffer_ = new char[bufferSize_];
 
 	memset(buffer_,'\0',bufferSize_);
