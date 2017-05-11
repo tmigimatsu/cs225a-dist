@@ -118,7 +118,6 @@ int main(int argc, char** argv) {
 
 		// Check for convergence
 		if (robot->_q.norm() < kToleranceInitQ && robot->_dq.norm() < kToleranceInitDq) break;
-		break;
 
 		controller_counter++;
 	}
@@ -129,19 +128,10 @@ int main(int argc, char** argv) {
 
 	// Declare control variables
 	Eigen::VectorXd x_des(Puma::SIZE_OP_SPACE_TASK);
-	Eigen::Vector3d ee_pos_init(0.6, 0.2, 0.3);
+	Eigen::Vector3d ee_pos_init(0.57, 0.15, 0.32);
 	Eigen::Vector3d ee_pos_des = ee_pos_init;
 	Eigen::Quaterniond ee_ori_des(1, 0, 0, 0);
 	const double kAmplitude = 0.1;
-
-	robot->_q = q_des;
-	robot->updateModel();
-	robot->position(ee_pos_init, "end-effector", Eigen::Vector3d::Zero());
-	Eigen::Matrix3d ee_ori_init;
-	robot->rotation(ee_ori_init, "end-effector");
-	cout << robot->_q.transpose() << endl;
-	cout << ee_pos_init.transpose() << endl;
-	cout << ee_ori_init << endl;
 
 	// Control loop
 	while (g_runloop) {
