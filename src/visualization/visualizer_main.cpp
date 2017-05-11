@@ -83,7 +83,7 @@ static string EE_DESIRED_TRAJECTORY_CHAI_NAME = EE_POSITION_DESIRED_KEY + "_traj
 static string EE_POSITION_DESIRED_URDF_NAME   = EE_POSITION_DESIRED_KEY;
 
 // Default number of points in trajectory buffer
-static const int kLenTrajectory = 100;
+static const int kLenTrajectory = 300;
 
 // Minimum change between two points before updating trajectory
 static const double kTrajectoryMinUpdateDistance = 0.005;
