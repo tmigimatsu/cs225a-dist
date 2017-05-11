@@ -228,7 +228,7 @@ void RobotCom::getStatus( UiToServoMessageType get_type, float *arg )
 	mOut.WriteInt( GUI );
 	sendMessage(mOut);
 
-	short expectedMesgType = NO_MSSG;
+	uint16_t expectedMesgType = NO_MSSG;
 
 	switch( get_type )
 	{
@@ -258,7 +258,7 @@ void RobotCom::getStatus( UiToServoMessageType get_type, float *arg )
 		if( IsDataAvailable() )
 		{
 			CMappedMsg mIn = GetMsg();
-			short mesgType = mIn.ReadMessageType();
+			uint16_t mesgType = mIn.ReadMessageType();
 
 			int numData = mIn.ReadInt();
 
@@ -357,7 +357,7 @@ int RobotCom::Peek()
   int arg=0;
 #ifndef WIN32
 #ifdef PR_QNX
-  if (ioctl((short)robotSocket,FIONREAD,&arg)<0)
+  if (ioctl((uint16_t)robotSocket,FIONREAD,&arg)<0)
 #else // PR_QNX
   if (ioctl(robotSocket,FIONREAD,&arg)<0)
 #endif // PR_QNX
@@ -387,9 +387,9 @@ int RobotCom::Peek( char *buff, int nbytes )
   return arg;
 }
 
-short RobotCom::Unpack2B( char *text )
+uint16_t RobotCom::Unpack2B( char *text )
 {
-  return ntohs(*(short *)text);
+  return ntohs(*(uint16_t *)text);
   //return *(short *)text;
 }
 

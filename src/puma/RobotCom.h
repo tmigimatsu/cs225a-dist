@@ -51,14 +51,14 @@ private:
 	int Receive();
 	int Peek( char *buff, int nbytes );
 	int Peek();
-	short  Unpack2B( char *text );
+	uint16_t  Unpack2B( char *text );
 	int InitByteCounter();
 	
 	char *buffer_;
 	int bufferSize_;
 	int byteCounter_;
 
-	short size_;
+	uint16_t size_;
 	int readSize_;
 
 };
