@@ -75,15 +75,15 @@ public:
   virtual void SetMsg( const char* szMsg, int size ) = 0;
 
   // Write routines:
-  int WriteChar ( const char     *data, int num ) { return Pack(data,num,1); }
-  int WriteShort( const uint16_t *data, int num ) { return Pack((const char *)data,num,2); }
-  int WriteInt  ( const uint32_t *data, int num ) { return Pack((const char *)data,num,4); }
-  int WriteLong ( const uint32_t *data, int num ) { return Pack((const char *)data,num,4); }
-  int WriteFloat( const Float    *data, int num ) { return Pack((const char *)data,num,sizeof(Float)); }
+  int WriteChar ( const char    *data, int num ) { return Pack(data,num,1); }
+  int WriteShort( const int16_t *data, int num ) { return Pack((const char *)data,num,2); }
+  int WriteInt  ( const int32_t *data, int num ) { return Pack((const char *)data,num,4); }
+  int WriteLong ( const int32_t *data, int num ) { return Pack((const char *)data,num,4); }
+  int WriteFloat( const Float   *data, int num ) { return Pack((const char *)data,num,sizeof(Float)); }
 
   int  WriteBool ( bool value  ) { char val = (value ? '\01' : '\0'); return Pack((const char *)(&val),1,1); }
-  int  WriteInt  ( int value   ) { return Pack((const char *)(&value),1,4); }
-  int  WriteFloat( float value ) { return Pack((const char *)(&value),1,sizeof(Float)); }
+  int32_t  WriteInt  ( int32_t value   ) { return Pack((const char *)(&value),1,4); }
+  int  WriteFloat( Float value ) { return Pack((const char *)(&value),1,sizeof(Float)); }
   int  WriteString( const char * str ) { return Pack(str, (int)strlen(str)+1,sizeof(char)); }
   void WriteMessageType( int mesgType ) 
   { 
@@ -94,11 +94,11 @@ public:
   }
 
 
-  int ReadChar ( char     *data, int num ) { return Unpack(data,num,1); }
-  int ReadShort( uint16_t *data, int num ) { return Unpack((char *)data,num,2); }
-  int ReadInt  ( uint32_t *data, int num ) { return Unpack((char *)data,num,4); }
-  int ReadLong ( uint32_t *data, int num ) { return Unpack((char *)data,num,4); }
-  int ReadFloat( Float    *data, int num ) { return Unpack((char *)data,num,sizeof(Float)); }
+  int ReadChar ( char    *data, int num ) { return Unpack(data,num,1); }
+  int ReadShort( int16_t *data, int num ) { return Unpack((char *)data,num,2); }
+  int ReadInt  ( int32_t *data, int num ) { return Unpack((char *)data,num,4); }
+  int ReadLong ( int32_t *data, int num ) { return Unpack((char *)data,num,4); }
+  int ReadFloat( Float   *data, int num ) { return Unpack((char *)data,num,sizeof(Float)); }
 
 
   // Read routines:
