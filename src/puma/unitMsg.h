@@ -130,7 +130,7 @@ public:
     strncpy( m_szBuf, szMsg, size );
     m_mesgType = Unpack2B(m_szBuf+2);
     m_bufferSize = size;
-    //fprintf( stderr, "mm of type %d, s=%d; ", m_mesgType, m_bufferSize );
+    // printf("mm of type %d, s=%d; ", m_mesgType, m_bufferSize );
     InitByteCounter();
   }
 
@@ -152,7 +152,7 @@ public:
     m_szBuf = const_cast<char*> (szMsg);
     m_mesgType = Unpack2B(m_szBuf+2);
     m_bufferSize = size;
-    //fprintf( stderr, "mm of s=%d; ", m_bufferSize );
+    // printf("mm of type %d, s=%d; ", m_mesgType, m_bufferSize );
     InitByteCounter();
   }
 
@@ -197,7 +197,7 @@ inline uint16_t AMsg::Unpack2B( const char *text )
 
 inline uint32_t AMsg::Unpack4B( const char *text )
 {
-  return ntohl(*(const long *)text);
+  return ntohl(*(const uint32_t *)text);
   //return *(const long *)text;
 }
 

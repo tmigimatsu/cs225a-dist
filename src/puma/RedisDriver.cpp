@@ -36,6 +36,7 @@ static void stop() {
 		g_puma_robot->_break();
 	std::cout << "Sent BREAK command to Puma. Stopping run loop." << std::endl;
 #endif  // CONNECT_SERVER
+	exit(0);
 }
 static void stop(int signal) { stop(); }
 
@@ -71,14 +72,14 @@ int main(int argc, char** argv)
 void RedisDriver::eigenVectorFromBuffer(Eigen::VectorXd& vector) {
 	assert(vector.size() <= SIZE_OP_SPACE_TASK);
 	for (int i = 0; i < vector.size(); i++) {
-		vector[i] = data_buffer_[i];
+		vector(i) = data_buffer_[i];
 	}
 }
 
 void RedisDriver::eigenVectorToBuffer(const Eigen::VectorXd& vector) {
 	assert(vector.size() <= SIZE_OP_SPACE_TASK);
 	for (int i = 0; i < vector.size(); i++) {
-		data_buffer_[i] = vector[i];
+		data_buffer_[i] = vector(i);
 	}
 }
 
@@ -177,6 +178,8 @@ void RedisDriver::run() {
 					          << std::endl;
 					continue;
 				}
+				// Convert radians to degrees
+				command_data_ *= 180.0 / M_PI;
 				break;
 			case NXTRACK: case XTRACK:
 			case NGOTO:   case GOTO:
@@ -252,17 +255,25 @@ void RedisDriver::run() {
 		// Get Puma joint positions
 		puma_robot_->getStatus(GET_JPOS, data_buffer_);
 		eigenVectorFromBuffer(q_);
+		q_ *= M_PI / 180.0;
 		redis_client_.setEigenMatrixString(KEY_JOINT_POSITIONS, q_);
 
 		// Get Puma joint velocities
 		puma_robot_->getStatus(GET_JVEL, data_buffer_);
 		eigenVectorFromBuffer(dq_);
+		dq_ *= M_PI / 180.0;
 		redis_client_.setEigenMatrixString(KEY_JOINT_VELOCITIES, dq_);
 
 		// Get Puma torques
 		puma_robot_->getStatus(GET_TORQ, data_buffer_);
 		eigenVectorFromBuffer(Gamma_);
 		redis_client_.setEigenMatrixString(KEY_JOINT_TORQUES, Gamma_);
+
+		// Get Puma end effector position/orientation
+		puma_robot_->getStatus(GET_IPOS, data_buffer_);
+		eigenVectorFromBuffer(x_);
+		redis_client_.setEigenMatrixString(KEY_EE_POS, x_.head(3));
+		redis_client_.setEigenMatrixString(KEY_EE_ORI, x_.tail<4>());
 #endif  // CONNECT_SERVER
 	}
 }

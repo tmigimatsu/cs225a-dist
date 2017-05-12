@@ -230,23 +230,29 @@ void RobotCom::getStatus( UiToServoMessageType get_type, float *arg )
 	sendMessage(mOut);
 
 	uint16_t expectedMesgType = NO_MSSG;
+	int numData; // TODO: remove
 
 	switch( get_type )
 	{
 	case GET_CURTIME:
 		expectedMesgType = CURTIME_DATA;
+		numData = 1;
 		break;
 	case GET_JPOS:
 		expectedMesgType = JPOS_DATA;
+		numData = 6;
 		break;
 	case GET_JVEL:
 		expectedMesgType = JVEL_DATA;
+		numData = 6;
 		break;
 	case GET_TORQ:
 		expectedMesgType = TORQ_DATA;
+		numData = 6;
 		break;
 	case GET_IPOS:
 		expectedMesgType = IPOS_DATA;
+		numData = 7;
 		break;
 	default:
 		std::cout<<"Warning: RobotCom::getStatus: Unsupported messagetype provided!"<<std::endl;
@@ -260,8 +266,6 @@ void RobotCom::getStatus( UiToServoMessageType get_type, float *arg )
 		{
 			CMappedMsg mIn = GetMsg();
 			uint16_t mesgType = mIn.ReadMessageType();
-
-			int numData = mIn.ReadInt();
 
 			if( mesgType == expectedMesgType )
 			{
@@ -314,7 +318,7 @@ int RobotCom::ready()
     if (Peek(s,2) < 2)
       return -1;
     size_ = Unpack2B(s);
-    //fprintf(stderr, "got message of size %d\n", size_);
+    // printf("got message of size %d\n", size_);
     memset(buffer_,'\0',bufferSize_);
     InitByteCounter();
     readSize_ = 0;
