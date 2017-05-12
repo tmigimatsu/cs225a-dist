@@ -197,7 +197,7 @@ inline uint16_t AMsg::Unpack2B( const char *text )
 
 inline uint32_t AMsg::Unpack4B( const char *text )
 {
-  return ntohl(*(const long *)text);
+  return ntohl(*(const uint32_t *)text);
   //return *(const long *)text;
 }
 
