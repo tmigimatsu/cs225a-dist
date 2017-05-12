@@ -214,7 +214,7 @@ void RedisDriver::run() {
 			kp_str_ = kp_str_new;
 #if CONNECT_SERVER
 			eigenVectorToBuffer(kp_);
-			puma_robot_->setStatus(SET_KP, data_buffer_, kp_.size());
+			puma_robot_->setStatus(SET_KP, control_mode_, data_buffer_, kp_.size());
 #endif  // CONNECT_SERVER
 			std::cout << "Update KP: " << kp_str_ << std::endl;
 		}
@@ -239,7 +239,7 @@ void RedisDriver::run() {
 			kv_str_ = kv_str_new;
 #if CONNECT_SERVER
 			eigenVectorToBuffer(kv_);
-			puma_robot_->setStatus(SET_KV, data_buffer_, kv_.size());
+			puma_robot_->setStatus(SET_KV, control_mode_, data_buffer_, kv_.size());
 #endif  // CONNECT_SERVER
 			std::cout << "Update KV: " << kv_str_ << std::endl;
 		}

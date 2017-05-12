@@ -26,7 +26,7 @@ public:
 	//            GET_IPOS (gv.x)
 	void getStatus( UiToServoMessageType get_type, float *arg );
 
-	void setStatus( ConstantType set_type, float *arg, int numArgs );
+	void setStatus( ConstantType set_type, ControlMode control_mode, float *arg, int numArgs );
 
 	// voltage = -10.0 ~ + 10.0
     void controlGripper( float voltage );

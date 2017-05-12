@@ -189,11 +189,12 @@ void RobotCom::jointControl( ControlMode mode, float q0, float q1, float q2, flo
     sendMessage(mOut);
 }
 
-void RobotCom::setStatus( ConstantType set_type, float *arg, int numArgs ) {
+void RobotCom::setStatus( ConstantType set_type, ControlMode control_mode, float *arg, int numArgs ) {
 	CMsg mOut;
 	mOut.Init();
 	mOut.WriteMessageType(SET_CONSTANT);
 	mOut.WriteInt(set_type);
+    mOut.WriteInt(control_mode);
 	if (numArgs > 0)
 		mOut.WriteFloat(arg, numArgs);
 	sendMessage(mOut);
