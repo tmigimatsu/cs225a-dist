@@ -44,6 +44,8 @@ const std::string KEY_KV           = "cs225a::robot::puma::tasks::kv";
 const std::string KEY_JOINT_POSITIONS  = "cs225a::robot::puma::sensors::q";
 const std::string KEY_JOINT_VELOCITIES = "cs225a::robot::puma::sensors::dq";
 const std::string KEY_JOINT_TORQUES    = "cs225a::robot::puma::actuators::fgc";
+const std::string KEY_EE_POS           = "cs225a::robot::puma::tasks::ee_pos";
+const std::string KEY_EE_ORI           = "cs225a::robot::puma::tasks::ee_ori";
 
 // Puma control modes
 const std::map<std::string, ControlMode> CONTROL_MODE_MAP = {
@@ -97,6 +99,7 @@ public:
 		q_(DOF),
 		dq_(DOF),
 		Gamma_(DOF),
+		x_(SIZE_OP_SPACE_TASK),
 		kp_(DOF),
 		kv_(DOF)
 	{
@@ -104,6 +107,7 @@ public:
 		q_.setZero();
 		dq_.setZero();
 		Gamma_.setZero();
+		x_.setZero();
 		kp_.fill(kDefaultKp);
 		kv_.fill(kDefaultKv);
 		kp_str_ = RedisClient::encodeEigenMatrixString(kp_);
@@ -151,6 +155,7 @@ protected:
 	Eigen::VectorXd q_;
 	Eigen::VectorXd dq_;
 	Eigen::VectorXd Gamma_;
+	Eigen::VectorXd x_;
 	Eigen::VectorXd kp_;
 	Eigen::VectorXd kv_;
 	std::string kp_str_;
