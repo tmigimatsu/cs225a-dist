@@ -152,9 +152,6 @@ public:
 	Eigen::MatrixXd getEigenMatrixJSON(const std::string& key) {
 		std::string str = get(key);
 		return decodeEigenMatrixJSON(str);
-		// Eigen::MatrixBase<Derived> matrix;
-		// hEigenFromStringArrayJSON(matrix, str);
-		// return matrix;
 	}
 
 	/**
@@ -178,9 +175,6 @@ public:
 	Eigen::MatrixXd getEigenMatrixString(const std::string& key) {
 		std::string str = get(key);
 		return decodeEigenMatrixString(str);
-		// Eigen::MatrixBase<Derived> matrix;
-		// hEigenFromStringArrayCustom(matrix, str);
-		// return matrix;
 	}
 
 	/**
