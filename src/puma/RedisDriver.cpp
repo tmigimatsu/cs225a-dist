@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <signal.h>
 
-#define CONNECT_SERVER 0
+#define CONNECT_SERVER 1
 
 using namespace Puma;
 
@@ -35,8 +35,8 @@ static void stop() {
 #if CONNECT_SERVER
 	if (g_puma_robot != nullptr)
 		g_puma_robot->_break();
-	std::cout << "Sent BREAK command to Puma. Stopping run loop." << std::endl;
 #endif  // CONNECT_SERVER
+	std::cout << "Sent BREAK command to Puma. Stopping run loop." << std::endl;
 	exit(0);
 }
 static void stop(int signal) { stop(); }
@@ -171,11 +171,20 @@ Eigen::VectorXd RedisDriver::parseCommandData(std::string& command_data_str, Con
 		case NGOTO:   case GOTO:
 		case NTRACK:  case TRACK:
 			if (command_data.size() != SIZE_OP_SPACE_TASK) {
+				// Search for string associated with ControlMode
+				// (inefficient but the program is going to exit anyways)
+				std::string control_mode_str;
+				for (auto& mode_keyval : CONTROL_MODE_MAP) {
+					if (mode_keyval.second == control_mode) {
+						control_mode_str = mode_keyval.first;
+						break;
+					}
+				}
 				std::stringstream ss;
 				ss << "ERROR: Redis key (" << KEY_COMMAND_DATA << " = "
 				   << command_data.transpose() << ") must be of length "
 				   << SIZE_OP_SPACE_TASK << " for control mode "
-				   << control_mode << "." << std::endl;
+				   << control_mode_str << "." << std::endl;
 				throw std::invalid_argument(ss.str());
 			}
 			break;
@@ -242,7 +251,7 @@ void RedisDriver::run() {
 			if (control_mode_changed) {
 				control_mode_new = parseControlMode(values[0]);
 			}
-			if (command_data_changed) {
+			if (command_data_changed || control_mode_changed) {
 				command_data_new = parseCommandData(values[1], control_mode_new);
 			}
 			if (kp_changed) {
@@ -260,8 +269,8 @@ void RedisDriver::run() {
 				control_mode_str_ = values[0];
 				control_mode_ = control_mode_new;
 				send_control = true;
-				send_kp = true;
-				send_kv = true;
+				send_kp = (control_mode_ != FLOAT);
+				send_kv = (control_mode_ != FLOAT);
 			}
 			if (command_data_changed) {
 				command_data_str_ = values[1];
@@ -301,7 +310,8 @@ void RedisDriver::run() {
 				eigenVectorToBuffer(command_data_);
 				puma_robot_->control(control_mode_, data_buffer_, command_data_.size());
 #endif  // CONNECT_SERVER
-				std::cout << "Update Control: " << control_mode_str_ << " " << command_data_str_ << std::endl;
+				std::cout << "Update Control: " << control_mode_str_ << " "
+				          << (control_mode_ == FLOAT ? "" : command_data_str_) << std::endl;
 			}
 
 #if CONNECT_SERVER
