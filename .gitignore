@@ -1,6 +1,3 @@
-# Mac
-.DS_STORE
-
 # Compiled Object files
 *.slo
 *.lo
@@ -39,6 +36,13 @@ build_dbg
 
 # VScode Dir
 .vscode
+
+# Mac
+.DS_STORE
+
+# Temporary files
+*.swp
+*~
 
 # External libraries
 external/*
