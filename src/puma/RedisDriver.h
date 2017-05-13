@@ -145,6 +145,11 @@ protected:
 	void eigenVectorFromBuffer(Eigen::VectorXd& vector);
 	void eigenVectorToBuffer(const Eigen::VectorXd& vector);
 
+	ControlMode parseControlMode(std::string& control_mode_str) const;
+	Eigen::VectorXd parseCommandData(std::string& command_data_str, ControlMode control_mode) const;
+	Eigen::VectorXd parseKp(std::string& kp_str) const;
+	Eigen::VectorXd parseKv(std::string& kv_str) const;
+
 	// Redis client and timer
 	RedisClient redis_client_;
 	LoopTimer timer_;
@@ -158,6 +163,8 @@ protected:
 	Eigen::VectorXd x_;
 	Eigen::VectorXd kp_;
 	Eigen::VectorXd kv_;
+	std::string control_mode_str_;
+	std::string command_data_str_;
 	std::string kp_str_;
 	std::string kv_str_;
 
