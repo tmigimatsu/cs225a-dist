@@ -1,9 +1,12 @@
 /*
  * RedisDriver.h
  *
- *  Created on: May 4, 2017
+ *  Created on: May 8, 2017
  *      Author: Toki Migimatsu
  */
+
+#ifndef PUMA_REDIS_DRIVER_H
+#define PUMA_REDIS_DRIVER_H
 
 #include "RobotCom.h"
 #include "redis/RedisClient.h"
@@ -16,7 +19,6 @@
 #include <Eigen/Core>
 
 namespace Puma {
-
 
 /*************
  * Constants *
@@ -42,6 +44,8 @@ const std::string KEY_KV           = "cs225a::robot::puma::tasks::kv";
 const std::string KEY_JOINT_POSITIONS  = "cs225a::robot::puma::sensors::q";
 const std::string KEY_JOINT_VELOCITIES = "cs225a::robot::puma::sensors::dq";
 const std::string KEY_JOINT_TORQUES    = "cs225a::robot::puma::actuators::fgc";
+const std::string KEY_EE_POS           = "cs225a::robot::puma::tasks::ee_pos";
+const std::string KEY_EE_ORI           = "cs225a::robot::puma::tasks::ee_ori";
 
 // Puma control modes
 const std::map<std::string, ControlMode> CONTROL_MODE_MAP = {
@@ -95,6 +99,7 @@ public:
 		q_(DOF),
 		dq_(DOF),
 		Gamma_(DOF),
+		x_(SIZE_OP_SPACE_TASK),
 		kp_(DOF),
 		kv_(DOF)
 	{
@@ -102,6 +107,7 @@ public:
 		q_.setZero();
 		dq_.setZero();
 		Gamma_.setZero();
+		x_.setZero();
 		kp_.fill(kDefaultKp);
 		kv_.fill(kDefaultKv);
 		kp_str_ = RedisClient::encodeEigenMatrixString(kp_);
@@ -139,6 +145,11 @@ protected:
 	void eigenVectorFromBuffer(Eigen::VectorXd& vector);
 	void eigenVectorToBuffer(const Eigen::VectorXd& vector);
 
+	ControlMode parseControlMode(std::string& control_mode_str) const;
+	Eigen::VectorXd parseCommandData(std::string& command_data_str, ControlMode control_mode) const;
+	Eigen::VectorXd parseKp(std::string& kp_str) const;
+	Eigen::VectorXd parseKv(std::string& kv_str) const;
+
 	// Redis client and timer
 	RedisClient redis_client_;
 	LoopTimer timer_;
@@ -149,8 +160,11 @@ protected:
 	Eigen::VectorXd q_;
 	Eigen::VectorXd dq_;
 	Eigen::VectorXd Gamma_;
+	Eigen::VectorXd x_;
 	Eigen::VectorXd kp_;
 	Eigen::VectorXd kv_;
+	std::string control_mode_str_;
+	std::string command_data_str_;
 	std::string kp_str_;
 	std::string kv_str_;
 
@@ -161,3 +175,4 @@ protected:
 
 }
 
+#endif  // PUMA_REDIS_DRIVER_H

@@ -1,33 +1,23 @@
-################Initialize the Cmake Defaults#################
-
-cmake_minimum_required (VERSION 3.1)
-
-#Name the project
-project (puma_driver)
-
-#Make sure the generated makefile is not shortened
-set (CMAKE_VERBOSE_MAKEFILE ON)
-
 ################Initialize the executable#################
 
-#Set the compilation flags
-SET(CMAKE_CXX_STANDARD 14)
-SET(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set (CS225A_COMMON_SOURCE
-	${PROJECT_SOURCE_DIR}/../redis/RedisClient.cpp
-	${PROJECT_SOURCE_DIR}/../timer/LoopTimer.cpp
-)
-include_directories (${PROJECT_SOURCE_DIR}/..)
-
-#Set all the sources required for the library
+# Set all the sources required for the executables
 set (PUMA_DRIVER_SOURCE
 	RobotCom.cpp
 	unitMsg.cpp
 	RedisDriver.cpp
 )
+set (PUMA_CONTROLLER_SOURCE DemoController.cpp)
 
-#Set the executable to be built and its required linked libraries (the ones in the /usr/lib dir)
+# Create the executables
 add_executable (puma_driver ${CS225A_COMMON_SOURCE} ${PUMA_DRIVER_SOURCE})
+add_executable (puma_demo ${CS225A_COMMON_SOURCE} ${PUMA_CONTROLLER_SOURCE})
 
-target_link_libraries(puma_driver ${CS225A_COMMON_LIBRARIES})
+# Link the required libraries
+target_link_libraries (puma_driver ${HIREDIS_LIBRARY})
+target_link_libraries (puma_demo ${CS225A_COMMON_LIBRARIES})
+
+set (RESOURCE_DIR ${CS225A_BINARY_DIR}/resources)
+file (MAKE_DIRECTORY ${RESOURCE_DIR})
+set (APP_RESOURCE_DIR ${RESOURCE_DIR}/puma_demo)
+file (MAKE_DIRECTORY ${APP_RESOURCE_DIR})
+file (COPY puma.urdf world.urdf DESTINATION ${APP_RESOURCE_DIR})
