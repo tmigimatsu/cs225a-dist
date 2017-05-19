@@ -70,7 +70,7 @@ endif ()
 
 
 # - natnetlinux
-find_package(Boost REQUIRED COMPONENTS thread)
+find_package(Boost REQUIRED COMPONENTS system thread)
 include_directories(${Boost_INCLUDE_DIRS})
 link_libraries(${Boost_LIBRARIES})
 include_directories(${PROJECT_SOURCE_DIR}/external/NatNetLinux.git/include)
