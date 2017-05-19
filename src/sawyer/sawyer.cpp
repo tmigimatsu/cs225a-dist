@@ -36,6 +36,7 @@ static std::string KV_JOINT_KEY = "";
 static std::string KP_JOINT_INIT_KEY = "";
 static std::string KV_JOINT_INIT_KEY = "";
 static std::string EE_POSITION_KEY = "";
+static std::string EE_DES_POSITION_KEY = "";
 
 // Function to parse command line arguments
 void parseCommandline(int argc, char** argv);
@@ -57,7 +58,7 @@ int main(int argc, char** argv) {
 	KP_JOINT_INIT_KEY           = "cs225a::robot::" + robot_name + "::tasks::kp_joint_init";
 	KV_JOINT_INIT_KEY           = "cs225a::robot::" + robot_name + "::tasks::kv_joint_init";
 	EE_POSITION_KEY             = "cs225a::robot::" + robot_name + "::tasks::ee_pos";
-
+	EE_DES_POSITION_KEY	    = "cs225a::robot::" + robot_name + "::tasks::ee_pos_des";
 
 	cout << "Loading URDF world model file: " << world_file << endl;
 
@@ -69,10 +70,6 @@ int main(int argc, char** argv) {
 	info.timeout_ = { 1, 500000 }; // 1.5 seconds
 	auto redis_client = RedisClient();
 	redis_client.serverIs(info);
-
-	// sleep(1); // Just a hack to ensure q's,dq's are set before controller loads them
-	// Note: timer.initializeTimer() also pauses before first call to
-	// timer.waitForNextLoop(). Just need to set q_des after that call.
 
 	// Load robot
 	auto robot = new Model::ModelInterface(robot_file, Model::rbdl, Model::urdf, false);
@@ -99,24 +96,29 @@ int main(int argc, char** argv) {
 
 	redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
 
-	q_des = robot->_q;
+	//q_des = robot->_q;
+	q_des = q_initial;	
 
-	int kp_pos = 200;
-	int kv_pos = 70;
-	int kp_ori = 50;
-	int kv_ori = 10;
-	int kv_joint = 8;
+	int kp_pos = 100;
+	int kv_pos = 35;
+	int kp_ori = 100;
+	int kv_ori = 50;
+	int kv_joint = 20;
 	int kp_joint = 30;
+	double kMaxVelocity = 0.3;
 	string redis_buf;
+	double t_curr = 0;
 	robot->position(x_initial, "right_l6", Eigen::Vector3d::Zero());
 	robot->rotation(R_des, "right_l6");
-
 	while (runloop) {
 		timer.waitForNextLoop();
 
 		// Get current simulation timestamp from Redis
 		redis_client.getCommandIs(TIMESTAMP_KEY, redis_buf);
-		double t_curr = stod(redis_buf);
+		if (redis_buf.length() != 0)
+		{
+			t_curr = stod(redis_buf);
+		}
 
 		// read from Redis current sensor values
 		redis_client.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
@@ -136,20 +138,30 @@ int main(int argc, char** argv) {
 		robot->orientationError(d_phi, R_des, R);
 		robot->nullspaceMatrix(N, J);
 
-		x_des << -0.3, 0.2 * sin(0.5*M_PI*t_curr) + 0.05, 0.2 + 0.2 * cos(0.5*M_PI*t_curr);
+		x_des << -0.2, 0.2 * sin(0.1*M_PI*t_curr) - 0.1, 0.2 + 0.2 * cos(0.1*M_PI*t_curr);
 		x_des += x_initial;
 
 		// Send end effector position for trajectory visualization
 		redis_client.setEigenMatrixDerivedString(EE_POSITION_KEY, x);
+		redis_client.setEigenMatrixDerivedString(EE_DES_POSITION_KEY, x_des);
 		
 		// Orientation and position controller with pose and damping in the nullspace
 		dw = -kp_ori * d_phi - kv_ori * w;
-		ddx = -kp_pos * (x - x_des) - kv_pos * dx;
+
+		// Velocity Control
+		Eigen::Vector3d x_err = x - x_des;
+		Eigen::Vector3d dx_des = -(kp_pos / kv_pos) * x_err;
+		double v = kMaxVelocity / dx_des.norm();
+		if (v > 1) v = 1;
+		Eigen::Vector3d dx_err = dx - v * dx_des;
+		ddx = -kv_pos * dx_err;
+
 		ddx_dw << dw, ddx;
 		F = Lambda * ddx_dw;
 		nullspace_damping = N.transpose() * robot->_M * (kp_joint * (q_des - robot->_q) - kv_joint * robot->_dq);
-		command_torques = J.transpose() * F + nullspace_damping + g;
-		
+		command_torques = J.transpose() * F + nullspace_damping + g; // Don't forget to add or remove gravity for real robot
+		// command_torques = robot->_M * (kp_joint * (q_des - robot->_q) - kv_joint * robot->_dq); // Joint Control Law
+
 		redis_client.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques);
 	}
 	
