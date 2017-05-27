@@ -6,11 +6,15 @@
 #include <string>
 #include <iostream>
 #include <stdexcept>
-#include <json/json.h>
 #include <sstream>
-#include <iomanip>
 #include <algorithm>
 #include <vector>
+
+// For deprecated functions
+#include <json/json.h>
+#include <iomanip>
+
+// #define JSON_DEFAULT
 
 struct HiredisServerInfo {
 	std::string hostname_;
@@ -51,13 +55,39 @@ public:
 	void set(const std::string& key, const std::string& value);
 
 	/**
+	 * Perform Redis GET commands in bulk: GET key1; GET key2...
+	 *
+	 * Gets multiple keys as a non-atomic operation. More efficient than
+	 * getting the keys separately. See:
+	 * https://redis.io/topics/mass-insert
+	 *
+	 * In C++11, this function can be called with brace initialization:
+	 * auto values = redis_client.get({"key1", "key2"});
+	 * 
+	 * @param keys  Vector of keys to get from Redis.
+	 * @return      Vector of retrieved values. Optimized with RVO.
+	 */
+	std::vector<std::string> get(const std::vector<std::string>& keys);
+
+	/**
+	 * Perform Redis SET commands in bulk: SET key1 val1; SET key2 val2...
+	 *
+	 * Sets multiple keys as a non-atomic operation. More efficient than
+	 * setting the keys separately. See:
+	 * https://redis.io/topics/mass-insert
+	 *
+	 * In C++11, this function can be called with brace initialization:
+	 * redis_client.set({{"key1", "val1"}, {"key2", "val2"}});
+	 * 
+	 * @param keyvals  Vector of key-value pairs to set in Redis.
+	 */
+	void set(const std::vector<std::pair<std::string, std::string>>& keyvals);
+
+	/**
 	 * Perform Redis command: MGET key1 key2...
 	 *
 	 * MGET gets multiple keys as an atomic operation. See:
 	 * https://redis.io/commands/mget
-	 *
-	 * In C++11, this function can be called with brace initialization:
-	 * redis_client.mset({"key1", "key2"});
 	 * 
 	 * @param keys  Vector of keys to get from Redis.
 	 * @return      Vector of retrieved values. Optimized with RVO.
@@ -70,123 +100,110 @@ public:
 	 * MSET sets multiple keys as an atomic operation. See:
 	 * https://redis.io/commands/mset
 	 *
-	 * In C++11, this function can be called with brace initialization:
-	 * redis_client.mset({{"key1", "val1"}, {"key2", "val2"}});
-	 * 
 	 * @param keyvals  Vector of key-value pairs to set in Redis.
 	 */
 	void mset(const std::vector<std::pair<std::string, std::string>>& keyvals);
 
 	/**
- 	 * Encode Eigen::MatrixXd as JSON string.
+ 	 * Encode Eigen::MatrixXd as JSON or space-delimited string.
 	 *
-	 * For example:
+	 * encodeEigenMatrixJSON():
 	 *   [1,2,3,4]     => "[1,2,3,4]"
 	 *   [[1,2],[3,4]] => "[[1,2],[3,4]]"
 	 *
-	 * @param matrix  Eigen::MatrixXd to encode.
-	 * @return        Encoded string.
-	 */
-	template<typename Derived>
-	static std::string encodeEigenMatrixJSON(const Eigen::MatrixBase<Derived>& matrix) {
-		std::string s;
-		hEigenToStringArrayJSON(matrix, s);
-		return s;
-	}
-
-	/**
- 	 * Decode Eigen::MatrixXd from space-delimited string.
-	 *
-	 * For example:
-	 *   "[1,2,3,4]"     => [1,2,3,4]
-	 *   "[[1,2],[3,4]]" => [[1,2],[3,4]]
-	 *
-	 * @param str  String to decode.
-	 * @return     Decoded Eigen::Matrix.
-	 */
-	static Eigen::MatrixXd decodeEigenMatrixJSON(const std::string& str) {
-		Eigen::MatrixXd matrix;
-		hEigenFromStringArrayJSON(matrix, str);
-		return matrix;
-	}
-
-	/**
- 	 * Encode Eigen::MatrixXd as space-delimited string.
-	 *
-	 * For example:
+	 * encodeEigenMatrixString():
 	 *   [1,2,3,4]     => "1 2 3 4"
 	 *   [[1,2],[3,4]] => "1 2; 3 4"
 	 *
+	 * encodeEigenMatrix():
+	 *   Encodes JSON or space-delimited string depending on JSON_DEFAULT.
+	 *
 	 * @param matrix  Eigen::MatrixXd to encode.
 	 * @return        Encoded string.
 	 */
 	template<typename Derived>
-	static std::string encodeEigenMatrixString(const Eigen::MatrixBase<Derived>& matrix) {
-		std::string s;
-		hEigenToStringArrayCustom(matrix, s);
-		return s;
+	static std::string encodeEigenMatrixJSON(const Eigen::MatrixBase<Derived>& matrix);
+
+	template<typename Derived>
+	static std::string encodeEigenMatrixString(const Eigen::MatrixBase<Derived>& matrix);
+
+	template<typename Derived>
+	static std::string encodeEigenMatrix(const Eigen::MatrixBase<Derived>& matrix) {
+#ifdef JSON_DEFAULT
+		return encodeEigenMatrixJSON(matrix);
+#else  // JSON_DEFAULT
+		return encodeEigenMatrixString(matrix);
+#endif  // JSON_DEFAULT
 	}
 
 	/**
- 	 * Decode Eigen::MatrixXd from space-delimited string.
+ 	 * Decode Eigen::MatrixXd from JSON or space-delimited string.
 	 *
-	 * For example:
+	 * decodeEigenMatrixJSON():
+	 *   "[1,2,3,4]"     => [1,2,3,4]
+	 *   "[[1,2],[3,4]]" => [[1,2],[3,4]]
+	 *
+	 * decodeEigenMatrixString():
 	 *   "1 2 3 4"  => [1,2,3,4]
 	 *   "1 2; 3 4" => [[1,2],[3,4]]
 	 *
+	 * decodeEigenMatrix():
+	 *   Decodes both JSON and space-delimited strings.
+	 *
 	 * @param str  String to decode.
-	 * @return     Decoded Eigen::Matrix.
+	 * @return     Decoded Eigen::Matrix. Optimized with RVO.
 	 */
-	static Eigen::MatrixXd decodeEigenMatrixString(const std::string& str) {
-		Eigen::MatrixXd matrix;
-		hEigenFromStringArrayCustom(matrix, str);
-		return matrix;
+	static Eigen::MatrixXd decodeEigenMatrixJSON(const std::string& str);
+
+	static Eigen::MatrixXd decodeEigenMatrixString(const std::string& str);
+
+	static Eigen::MatrixXd decodeEigenMatrix(const std::string& str) {
+		return (str[0] == '[') ? decodeEigenMatrixJSON(str) : decodeEigenMatrixString(str);
 	}
 
 	/**
-	 * Get Eigen::MatrixXd from Redis as JSON string.
+	 * Get Eigen::MatrixXd from Redis.
+	 *
+	 * See decodeEigenMatrix() for description of JSON and space-delimited
+	 * string formats.
 	 *
 	 * @param key  Key to get from Redis.
-	 * @return     Value as Eigen::MatrixXd. Optimized with RVO.
+	 * @return     Value as Eigen::MatrixXd.
 	 */
-	Eigen::MatrixXd getEigenMatrixJSON(const std::string& key) {
-		std::string str = get(key);
-		return decodeEigenMatrixJSON(str);
+	inline Eigen::MatrixXd getEigenMatrixJSON(const std::string& key) {
+		return decodeEigenMatrixJSON(get(key));
+	}
+
+	inline Eigen::MatrixXd getEigenMatrixString(const std::string& key) {
+		return decodeEigenMatrixString(get(key));
+	}
+
+	inline Eigen::MatrixXd getEigenMatrix(const std::string& key) {
+		return decodeEigenMatrix(get(key));
 	}
 
 	/**
-	 * Set Eigen::MatrixXd in Redis as JSON string
+	 * Set Eigen::MatrixXd in Redis.
+	 *
+	 * See encodeEigenMatrix() for description of JSON and space-delimited
+	 * string formats.
 	 *
 	 * @param key    Key to set in Redis.
 	 * @param value  Value for key.
 	 */
 	template<typename Derived>
-	void setEigenMatrixJSON(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
-		std::string str = encodeEigenMatrixJSON(value);
-		set(key, str);
+	inline void setEigenMatrixJSON(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
+		set(key, encodeEigenMatrixJSON(value));
 	}
 
-	/**
-	 * Get Eigen::MatrixXd from Redis as space-delimited string.
-	 *
-	 * @param key  Key to get from Redis.
-	 * @return     Value as Eigen::MatrixXd. Optimized with RVO.
-	 */
-	Eigen::MatrixXd getEigenMatrixString(const std::string& key) {
-		std::string str = get(key);
-		return decodeEigenMatrixString(str);
-	}
-
-	/**
-	 * Set Eigen::MatrixXd in Redis as space-delimited string
-	 *
-	 * @param key    Key to set in Redis.
-	 * @param value  Value for key.
-	 */
 	template<typename Derived>
-	void setEigenMatrixString(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
-		std::string str = encodeEigenMatrixString(value);
-		set(key, str);
+	inline void setEigenMatrixString(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
+		set(key, encodeEigenMatrixString(value));
+	}
+
+	template<typename Derived>
+	inline void setEigenMatrix(const std::string& key, const Eigen::MatrixBase<Derived>& value) {
+		set(key, encodeEigenMatrix(value));
 	}
 
 public:
@@ -318,6 +335,57 @@ protected:
 };
 
 //Implementation must be part of header for compile time template specialization
+template<typename Derived>
+std::string RedisClient::encodeEigenMatrixJSON(const Eigen::MatrixBase<Derived>& matrix) {
+	std::string s = "[";
+	if (matrix.cols() == 1) { // Column vector
+		// [[1],[2],[3],[4]] => "[1,2,3,4]"
+		for (int i = 0; i < matrix.rows(); ++i) {
+			if (i > 0) s.append(",");
+			s.append(std::to_string(matrix(i,0)));
+		}
+	} else { // Matrix
+		// [[1,2,3,4]]   => "[1,2,3,4]"
+		// [[1,2],[3,4]] => "[[1,2],[3,4]]"
+		for (int i = 0; i < matrix.rows(); ++i) {
+			if (i > 0) s.append(",");
+			// Nest arrays only if there are multiple rows
+			if (matrix.rows() > 1) s.append("[");
+			for (int j = 0; j < matrix.cols(); ++j) {
+				if (j > 0) s.append(",");
+				s.append(std::to_string(matrix(i,j)));
+			}
+			// Nest arrays only if there are multiple rows
+			if (matrix.rows() > 1) s.append("]");
+		}
+	}
+	s.append("]");
+	return s;
+}
+
+template<typename Derived>
+std::string RedisClient::encodeEigenMatrixString(const Eigen::MatrixBase<Derived>& matrix) {
+	std::string s;
+	if (matrix.cols() == 1) { // Column vector
+		// [[1],[2],[3],[4]] => "1 2 3 4"
+		for (int i = 0; i < matrix.rows(); ++i) {
+			if (i > 0) s += " ";
+			s += std::to_string(matrix(i,0));
+		}
+	} else { // Matrix
+		// [1,2,3,4]     => "1 2 3 4"
+		// [[1,2],[3,4]] => "1 2; 3 4"
+		for (int i = 0; i < matrix.rows(); ++i) {
+			if (i > 0) s += "; ";
+			for (int j = 0; j < matrix.cols(); ++j) {
+				if (j > 0) s += " ";
+				s += std::to_string(matrix(i,j));
+			}
+		}
+	}
+	return s;
+}
+
 template<typename Derived>
 bool RedisClient::hEigentoStringArrayJSON(const Eigen::MatrixBase<Derived>& x, std::string& arg_str)
 {
