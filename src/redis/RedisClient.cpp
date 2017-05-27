@@ -33,7 +33,7 @@ void RedisClient::set(const std::string& key, const std::string& value) {
 	freeReplyObject(reply_);
 }
 
-std::vector<std::string> RedisClient::pipeget(const std::vector<std::string>& keys) {
+std::vector<std::string> RedisClient::get(const std::vector<std::string>& keys) {
 	// Prepare key list
 	for (const auto& key : keys) {
 		redisAppendCommand(context_, "GET %s", key.c_str());
@@ -54,7 +54,7 @@ std::vector<std::string> RedisClient::pipeget(const std::vector<std::string>& ke
 	return values;
 }
 
-void RedisClient::pipeset(const std::vector<std::pair<std::string, std::string>>& keyvals) {
+void RedisClient::set(const std::vector<std::pair<std::string, std::string>>& keyvals) {
 	// Prepare key list
 	for (const auto& keyval : keyvals) {
 		redisAppendCommand(context_, "SET %s %s", keyval.first.c_str(), keyval.second.c_str());

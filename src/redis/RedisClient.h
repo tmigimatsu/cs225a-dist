@@ -57,31 +57,31 @@ public:
 	/**
 	 * Perform Redis GET commands in bulk: GET key1; GET key2...
 	 *
-	 * Pipeget gets multiple keys as a non-atomic operation. More efficient than
+	 * Gets multiple keys as a non-atomic operation. More efficient than
 	 * getting the keys separately. See:
 	 * https://redis.io/topics/mass-insert
 	 *
 	 * In C++11, this function can be called with brace initialization:
-	 * auto values = redis_client.pipeget({"key1", "key2"});
+	 * auto values = redis_client.get({"key1", "key2"});
 	 * 
 	 * @param keys  Vector of keys to get from Redis.
 	 * @return      Vector of retrieved values. Optimized with RVO.
 	 */
-	std::vector<std::string> pipeget(const std::vector<std::string>& keys);
+	std::vector<std::string> get(const std::vector<std::string>& keys);
 
 	/**
 	 * Perform Redis SET commands in bulk: SET key1 val1; SET key2 val2...
 	 *
-	 * Pipeset sets multiple keys as a non-atomic operation. More efficient than
+	 * Sets multiple keys as a non-atomic operation. More efficient than
 	 * setting the keys separately. See:
 	 * https://redis.io/topics/mass-insert
 	 *
 	 * In C++11, this function can be called with brace initialization:
-	 * redis_client.pipeset({{"key1", "val1"}, {"key2", "val2"}});
+	 * redis_client.set({{"key1", "val1"}, {"key2", "val2"}});
 	 * 
 	 * @param keyvals  Vector of key-value pairs to set in Redis.
 	 */
-	void pipeset(const std::vector<std::pair<std::string, std::string>>& keyvals);
+	void set(const std::vector<std::pair<std::string, std::string>>& keyvals);
 
 	/**
 	 * Perform Redis command: MGET key1 key2...
