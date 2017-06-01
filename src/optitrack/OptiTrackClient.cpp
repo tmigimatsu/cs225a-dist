@@ -200,7 +200,7 @@ bool OptiTrackClient::readNetworkFrame() {
 	std::vector<Point3f> single_markers = frame.unIdMarkers();
 	pos_single_markers_.resize(single_markers.size());
 
-	for (size_t i = 0; i < rigid_bodies.size(); i++) {
+	for (size_t i = 0; i < pos_single_markers_.size(); i++) {
 		Point3f pos = single_markers[i];
 		pos_single_markers_[i] = Eigen::Vector3f(pos.x, pos.y, pos.z);
 	}
