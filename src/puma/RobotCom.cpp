@@ -200,6 +200,15 @@ void RobotCom::setStatus( ConstantType set_type, ControlMode control_mode, float
 	sendMessage(mOut);
 }
 
+void RobotCom::setConstant( ConstantType set_type, float arg ) {
+	CMsg mOut;
+	mOut.Init();
+	mOut.WriteMessageType(SET_CONSTANT);
+	mOut.WriteInt(set_type);
+	mOut.WriteFloat(arg);
+	sendMessage(mOut);
+}
+
 void RobotCom::controlGripper( float voltage )
 {
     if( voltage < -10.0 || 10.0 < voltage ) return;
