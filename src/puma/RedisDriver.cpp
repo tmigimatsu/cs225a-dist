@@ -117,6 +117,7 @@ void RedisDriver::init() {
 	redis_client_.setEigenMatrixString(KEY_JOINT_POSITIONS, q_);
 	redis_client_.setEigenMatrixString(KEY_JOINT_VELOCITIES, dq_);
 	redis_client_.setEigenMatrixString(KEY_JOINT_TORQUES, Gamma_);
+	redis_client_.set(KEY_VMAX, std::to_string(vmax_));
 }
 
 ControlMode RedisDriver::parseControlMode(std::string& control_mode_str) const {
@@ -312,6 +313,19 @@ void RedisDriver::run() {
 #endif  // CONNECT_SERVER
 				std::cout << "Update Control: " << control_mode_str_ << " "
 				          << (control_mode_ == FLOAT ? "" : command_data_str_) << std::endl;
+			}
+
+			// Set VMAX
+			std::string vmax_str_new = redis_client_.get(KEY_VMAX);
+			if (vmax_str_new != vmax_str_) {
+				vmax_ = std::stof(vmax_str_new);
+				if (vmax_ != 0) {
+#if CONNECT_SERVER
+					puma_robot_->setConstant(SET_VMAX, vmax_);
+#endif  // CONNECT_SERVER
+					std::cout << "Update VMAX: " << vmax_ << std::endl;
+				}
+				vmax_str_ = vmax_str_new;
 			}
 
 #if CONNECT_SERVER

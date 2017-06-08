@@ -28,6 +28,8 @@ public:
 
 	void setStatus( ConstantType set_type, ControlMode control_mode, float *arg, int numArgs );
 
+	void setConstant( ConstantType set_type, float arg );
+
 	// voltage = -10.0 ~ + 10.0
     void controlGripper( float voltage );
 
