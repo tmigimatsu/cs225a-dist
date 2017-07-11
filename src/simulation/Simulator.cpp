@@ -4,15 +4,7 @@
 
 #include <signal.h>
 static volatile bool g_runloop = true;
-static Simulator *g_app = nullptr;
-void stop(int) {
-	g_runloop = false;
-	if (g_app == nullptr) return;
-	for (auto& r : g_app->robots_) {
-		g_app->redis_.del(r.KEY_JOINT_POSITIONS);
-		g_app->redis_.del(r.KEY_JOINT_VELOCITIES);
-	}
-}
+void stop(int) { g_runloop = false; }
 
 void Simulator::run() {
 	// Create a loop timer
@@ -79,6 +71,12 @@ void Simulator::run() {
 		}
 
 	}
+
+	// Clean up keys
+	for (auto& r : robots_) {
+		redis_.del(r.KEY_JOINT_POSITIONS);
+		redis_.del(r.KEY_JOINT_VELOCITIES);
+	}
 }
 
 int main(int argc, char** argv) {
@@ -111,6 +109,5 @@ int main(int argc, char** argv) {
 	auto sim = std::make_shared<Simulation::SimulationInterface>(world_file, Simulation::sai2simulation, Simulation::urdf, false);
 
 	Simulator app(sim, robots, robot_names);
-	g_app = &app;
 	app.run();
 }

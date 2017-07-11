@@ -92,7 +92,7 @@ protected:
 	const int kRedisPort = 6379;
 
 	// Redis keys:
-	const std::string kRedisKeyPrefix = "cs225a::robot::";
+	const std::string kRedisKeyPrefix = "cs225a::";
 	// - write:
 	const std::string KEY_COMMAND_TORQUES;
 	const std::string KEY_EE_POS;
