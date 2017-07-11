@@ -12,7 +12,6 @@
 
 // std
 #include <iostream>
-#include <fstream>
 
 OptiTrackClient::~OptiTrackClient() {
 	closeConnection();
@@ -174,7 +173,7 @@ void OptiTrackClient::closeCsv() {
 	resetState();
 }
 
-bool setFps(int fps) {
+bool OptiTrackClient::setFps(int fps) {
 	if (csv_file_.is_open() || command_listener_ || frame_listener_) {
 		std::cerr << "OptiTrackClient::setFps() : Cannot set fps while connection is open." << std::endl;
 		return false;

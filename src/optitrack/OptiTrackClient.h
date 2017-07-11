@@ -16,20 +16,23 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <fstream>
 
 // Eigen
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <Eigen/StdVector>
 
-// Default framerate for CS225a OptiTrack system
-const int kOptiTrackFpsDefault225a = 120;
+namespace OptiTrackServer {
+	// Default framerate for CS225a OptiTrack system
+	const int DEFAULT_FPS = 120;
 
-// Maximum framerate for CS225a OptiTrack system
-const int kOptiTrackFpsMax225a = 240;
+	// Maximum framerate for CS225a OptiTrack system
+	const int MAX_FPS = 240;
 
-// Default server IP for CS225a OptiTrack system
-const std::string kOptiTrackServerIp225a = "172.24.68.48";
+	// Default server IP for CS225a OptiTrack system
+	const std::string DEFAULT_IP = "172.24.68.48";
+}
 
 class OptiTrackClient {
 
@@ -50,7 +53,7 @@ public:
 	 *                                 Set to kOptiTrackServerIp225a by default.
 	 * @return  True if connection is established, otherwise false.
 	 */
-	bool openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address = kOptiTrackServerIp225a);
+	bool openConnection(const std::string& local_public_ip_address, const std::string& server_ip_address = OptiTrackServer::DEFAULT_IP);
 
 	/**
 	 * Close connection with OptiTrack server.
@@ -83,8 +86,8 @@ public:
 	/**
 	 * Timestamp of current frame in seconds, starting at 0s.
 	 */
-	long double frameTime() {
-		return static_cast<long double>(t_frame_) / fps_;
+	double frameTime() {
+		return static_cast<double>(t_frame_) / fps_;
 	};
 
 	/**
@@ -150,7 +153,7 @@ private:
 	size_t t_frame_start_ = 0;
 	size_t t_frame_ = 0;
 	size_t t_frame_next_ = 1;
-	int fps_ = kOptiTrackFpsDefault225a;
+	int fps_ = OptiTrackServer::DEFAULT_FPS;
 
 };
 

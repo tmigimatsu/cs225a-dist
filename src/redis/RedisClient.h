@@ -13,9 +13,18 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <chrono>
 #include <stdexcept>
 
 // #define JSON_DEFAULT
+
+namespace RedisServer {
+	// Default server ip
+	const std::string DEFAULT_IP = "127.0.0.1";
+
+	// Default server port
+	const int DEFAULT_PORT = 6379;
+}
 
 struct redisReplyDeleter {
 	void operator()(redisReply *r) { freeReplyObject(r); }

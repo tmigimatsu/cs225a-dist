@@ -46,7 +46,7 @@ std::string RedisClient::get(const std::string& key) {
 	auto reply = command("GET %s", key.c_str());
 
 	// Check for errors
-	if (!reply)
+	if (!reply || reply->type == REDIS_REPLY_ERROR || reply->type == REDIS_REPLY_NIL)
 		throw std::runtime_error("RedisClient: GET '" + key + "' failed.");
 	if (reply->type != REDIS_REPLY_STRING)
 		throw std::runtime_error("RedisClient: GET '" + key + "' returned non-string value.");

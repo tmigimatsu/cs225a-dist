@@ -21,27 +21,34 @@ using namespace std;
  * Retrieve all read keys from Redis.
  */
 void DemoProject::readRedisValues() {
-	// read from Redis current sensor values
-	redis_client_.getEigenMatrixDerivedString(JOINT_ANGLES_KEY, robot->_q);
-	redis_client_.getEigenMatrixDerivedString(JOINT_VELOCITIES_KEY, robot->_dq);
+	// Read from Redis current sensor values
+	robot->_q = redis_.getEigenMatrix(KEY_JOINT_POSITIONS);
+	robot->_dq = redis_.getEigenMatrix(KEY_JOINT_VELOCITIES);
 
 	// Get current simulation timestamp from Redis
-	redis_client_.getCommandIs(TIMESTAMP_KEY, redis_buf_);
-	t_curr_ = stod(redis_buf_);
+	t_curr_ = stod(redis_.get(KEY_TIMESTAMP));
 
 	// Read in KP and KV from Redis (can be changed on the fly in Redis)
-	redis_client_.getCommandIs(KP_POSITION_KEY, redis_buf_);
-	kp_pos_ = stoi(redis_buf_);
-	redis_client_.getCommandIs(KV_POSITION_KEY, redis_buf_);
-	kv_pos_ = stoi(redis_buf_);
-	redis_client_.getCommandIs(KP_ORIENTATION_KEY, redis_buf_);
-	kp_ori_ = stoi(redis_buf_);
-	redis_client_.getCommandIs(KV_ORIENTATION_KEY, redis_buf_);
-	kv_ori_ = stoi(redis_buf_);
-	redis_client_.getCommandIs(KP_JOINT_KEY, redis_buf_);
-	kp_joint_ = stoi(redis_buf_);
-	redis_client_.getCommandIs(KV_JOINT_KEY, redis_buf_);
-	kv_joint_ = stoi(redis_buf_);
+	kp_pos_ = stoi(redis_.get(KEY_KP_POSITION));
+	kv_pos_ = stoi(redis_.get(KEY_KV_POSITION));
+	kp_ori_ = stoi(redis_.get(KEY_KP_ORIENTATION));
+	kv_ori_ = stoi(redis_.get(KEY_KV_ORIENTATION));
+	kp_joint_ = stoi(redis_.get(KEY_KP_JOINT));
+	kv_joint_ = stoi(redis_.get(KEY_KV_JOINT));
+
+	// Read frames from OptiTrackClient
+	if (!optitrack_.getFrame()) return;
+
+	cout << "Timestamp: " << optitrack_.frameTime() << endl;
+	cout << "Rigid body positions:" << endl;
+	for (auto& pos : optitrack_.pos_rigid_bodies_) {
+		cout << '\t' << pos.transpose() << endl;
+	}
+	cout << "Marker positions:" << endl;
+	for (auto& pos : optitrack_.pos_single_markers_) {
+		cout << '\t' << pos.transpose() << endl;
+	}
+	cout << endl;
 }
 
 /**
@@ -51,11 +58,11 @@ void DemoProject::readRedisValues() {
  */
 void DemoProject::writeRedisValues() {
 	// Send end effector position and desired position
-	redis_client_.setEigenMatrixDerivedString(EE_POSITION_KEY, x_);
-	redis_client_.setEigenMatrixDerivedString(EE_POSITION_DESIRED_KEY, x_des_);
+	redis_.setEigenMatrix(KEY_EE_POS, x_);
+	redis_.setEigenMatrix(KEY_EE_POS_DES, x_des_);
 
 	// Send torques
-	redis_client_.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques_);
+	redis_.setEigenMatrix(KEY_COMMAND_TORQUES, command_torques_);
 }
 
 /**
@@ -142,56 +149,19 @@ void DemoProject::initialize() {
 
 	// Start redis client
 	// Make sure redis-server is running at localhost with default port 6379
-	redis_client_.serverIs(kRedisServerInfo);
+	redis_.connect(kRedisHostname, kRedisPort);
 
 	// Set up optitrack
-	optitrack_ = make_unique<OptiTrackClient>();
-	// optitrack_->openConnection("123.45.67.89");
-	optitrack_->openCsv("../resources/optitrack_120.csv");
-
-	// Demo usage for OptiTrackClient
-	// TODO: Remove
-	while (g_runloop) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		if (!optitrack_->getFrame()) continue;
-
-		cout << "Timestamp: " << optitrack_->frameTime() << endl;
-		cout << "Rigid body positions:" << endl;
-		for (auto& pos : optitrack_->pos_rigid_bodies_) {
-			cout << '\t' << pos.transpose() << endl;
-		}
-		cout << "Marker positions:" << endl;
-		for (auto& pos : optitrack_->pos_single_markers_) {
-			cout << '\t' << pos.transpose() << endl;
-		}
-		cout << endl;
-	}
+	// optitrack_.openConnection("123.45.67.89");
+	optitrack_.openCsv("../resources/optitrack_120.csv");
 
 	// Set gains in Redis if not initialized
-	if (!redis_client_.getCommandIs(KP_POSITION_KEY)) {
-		redis_buf_ = to_string(kp_pos_);
-		redis_client_.setCommandIs(KP_POSITION_KEY, redis_buf_);
-	}
-	if (!redis_client_.getCommandIs(KV_POSITION_KEY)) {
-		redis_buf_ = to_string(kv_pos_);
-		redis_client_.setCommandIs(KV_POSITION_KEY, redis_buf_);
-	}
-	if (!redis_client_.getCommandIs(KP_ORIENTATION_KEY)) {
-		redis_buf_ = to_string(kp_ori_);
-		redis_client_.setCommandIs(KP_ORIENTATION_KEY, redis_buf_);
-	}
-	if (!redis_client_.getCommandIs(KV_ORIENTATION_KEY)) {
-		redis_buf_ = to_string(kv_ori_);
-		redis_client_.setCommandIs(KV_ORIENTATION_KEY, redis_buf_);
-	}
-	if (!redis_client_.getCommandIs(KP_JOINT_KEY)) {
-		redis_buf_ = to_string(kp_joint_);
-		redis_client_.setCommandIs(KP_JOINT_KEY, redis_buf_);
-	}
-	if (!redis_client_.getCommandIs(KV_JOINT_KEY)) {
-		redis_buf_ = to_string(kv_joint_);
-		redis_client_.setCommandIs(KV_JOINT_KEY, redis_buf_);
-	}
+	redis_.set(KEY_KP_POSITION, to_string(kp_pos_));
+	redis_.set(KEY_KV_POSITION, to_string(kv_pos_));
+	redis_.set(KEY_KP_ORIENTATION, to_string(kp_ori_));
+	redis_.set(KEY_KV_ORIENTATION, to_string(kv_ori_));
+	redis_.set(KEY_KP_JOINT, to_string(kp_joint_));
+	redis_.set(KEY_KV_JOINT, to_string(kv_joint_));
 }
 
 /**
@@ -206,7 +176,17 @@ void DemoProject::runLoop() {
 		++controller_counter_;
 
 		// Get latest sensor values from Redis and update robot model
-		readRedisValues();
+		try {
+			readRedisValues();
+		} catch (std::exception& e) {
+			if (controller_state_ != REDIS_SYNCHRONIZATION) {
+				std::cout << e.what() << " Aborting..." << std::endl;
+				break;
+			}
+			std::cout << e.what() << " Waiting..." << std::endl;
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+			continue;
+		}
 		updateModel();
 
 		switch (controller_state_) {
@@ -250,7 +230,7 @@ void DemoProject::runLoop() {
 
 	// Zero out torques before quitting
 	command_torques_.setZero();
-	redis_client_.setEigenMatrixDerivedString(JOINT_TORQUES_COMMANDED_KEY, command_torques_);
+	redis_.setEigenMatrix(KEY_COMMAND_TORQUES, command_torques_);
 }
 
 int main(int argc, char** argv) {
@@ -260,13 +240,18 @@ int main(int argc, char** argv) {
 		cout << "Usage: demo_app <path-to-world.urdf> <path-to-robot.urdf> <robot-name>" << endl;
 		exit(0);
 	}
-	// argument 0: executable name
-	// argument 1: <path-to-world.urdf>
+	// Argument 0: executable name
+	// Argument 1: <path-to-world.urdf>
 	string world_file(argv[1]);
-	// argument 2: <path-to-robot.urdf>
+	// Argument 2: <path-to-robot.urdf>
 	string robot_file(argv[2]);
-	// argument 3: <robot-name>
+	// Argument 3: <robot-name>
 	string robot_name(argv[3]);
+
+	// Set up signal handler
+	signal(SIGABRT, &stop);
+	signal(SIGTERM, &stop);
+	signal(SIGINT, &stop);
 
 	// Load robot
 	cout << "Loading robot: " << robot_file << endl;
