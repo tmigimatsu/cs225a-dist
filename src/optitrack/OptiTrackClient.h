@@ -1,3 +1,10 @@
+/**
+ * OptiTrackClient.h
+ *
+ * Author: Toki Migimatsu
+ * Created: April 2017
+ */
+
 #ifndef OPTITRACK_CLIENT_H
 #define OPTITRACK_CLIENT_H
 
@@ -9,8 +16,6 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-#include <iostream>
-#include <fstream>
 
 // Eigen
 #include <Eigen/Core>
@@ -95,14 +100,7 @@ public:
 	int fps() {
 		return fps_;
 	}
-	bool setFps(int fps) {
-		if (csv_file_.is_open() || command_listener_ || frame_listener_) {
-			std::cerr << "OptiTrackClient::setFps() : Cannot set fps while connection is open." << std::endl;
-			return false;
-		}
-		fps_ = fps;
-		return true;
-	}
+	bool setFps(int fps);
 
 	/**
 	 * Positions of rigid bodies in current frame.

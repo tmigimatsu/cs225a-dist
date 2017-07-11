@@ -1,7 +1,18 @@
+/**
+ * OptiTrackClient.cpp
+ *
+ * Author: Toki Migimatsu
+ * Created: April 2017
+ */
+
 #include "OptiTrackClient.h"
 
 // NatNetLinux
 #include <NatNetLinux/NatNet.h>
+
+// std
+#include <iostream>
+#include <fstream>
 
 OptiTrackClient::~OptiTrackClient() {
 	closeConnection();
@@ -33,7 +44,7 @@ bool OptiTrackClient::openConnection(const std::string& local_public_ip_address,
 	unsigned char natnet_minor;
 	bool success = command_listener_->getNatNetVersion(natnet_major, natnet_minor);
 	if (!success) {
-		std::cout << "WARNING: Failed to connect to OptiTrack server " << server_ip_address << "." << std::endl << std::endl;
+		std::cout << "OptiTrackClient: Failed to connect to OptiTrack server " << server_ip_address << "." << std::endl << std::endl;
 		command_listener_->stop();
 		command_listener_->join();
 		command_listener_.release();
@@ -161,6 +172,15 @@ bool OptiTrackClient::openCsv(const std::string& filename) {
 void OptiTrackClient::closeCsv() {
 	csv_file_.close();
 	resetState();
+}
+
+bool setFps(int fps) {
+	if (csv_file_.is_open() || command_listener_ || frame_listener_) {
+		std::cerr << "OptiTrackClient::setFps() : Cannot set fps while connection is open." << std::endl;
+		return false;
+	}
+	fps_ = fps;
+	return true;
 }
 
 bool OptiTrackClient::getFrame() {
