@@ -44,7 +44,30 @@ static inline bool isnan(const Eigen::MatrixBase<Derived>& x) {
 
 int main(int argc, char** argv)
 {
-	std::cout << "This program provides a Redis interface for communication with the Puma server." << std::endl;
+	// Usage
+	if (argc < 3) {
+		std::cout << "Usage: puma_driver [-s REDIS_SERVER_IP] [-p REDIS_SERVER_PORT]" << std::endl
+		          << std::endl
+		          << "This program provides a Redis interface for communication with the Puma server." << std::endl
+		          << std::endl
+		          << "Optional arguments:" << std::endl
+		          << "  -s REDIS_SERVER_IP" << std::endl
+		          << "\t\t\t\tRedis server IP (default " << RedisServer::DEFAULT_IP << ")." << std::endl
+		          << "  -p REDIS_SERVER_PORT" << std::endl
+		          << "\t\t\t\tRedis server port (default " << RedisServer::DEFAULT_PORT << ")." << std::endl;
+	}
+
+	std::string redis_ip = RedisServer::DEFAULT_IP;
+	int redis_port = RedisServer::DEFAULT_PORT;
+	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "-s")) {
+			// Redis server IP
+			redis_ip = std::string(argv[++i]);
+		} else if (!strcmp(argv[i], "-p")) {
+			// Redis server port
+			sscanf(argv[++i], "%d", &redis_port);
+		}
+	}
 
 	// Initialize driver
 	RedisDriver pumaDriver;
@@ -79,7 +102,8 @@ void RedisDriver::eigenVectorToBuffer(const Eigen::VectorXd& vector) {
 	}
 }
 
-void RedisDriver::init() {
+void RedisDriver::init(const std::string& redis_hostname,
+                       const int redis_port) {
 	// Connect to Puma server
 	puma_robot_ = std::make_unique<RobotCom>();
 
@@ -93,18 +117,18 @@ void RedisDriver::init() {
 	timer_.initializeTimer(kInitializationPause);
 
 	// Connect to Redis server
-	redis_client_.serverIs(kRedisServerInfo);
+	redis_.connect(redis_hostname, redis_port);
 
 	// Initialize Redis keys
-	redis_client_.mset({
+	redis_.mset({
 		{KEY_CONTROL_MODE, kDefaultControlModeStr},
 		{KEY_COMMAND_DATA, RedisClient::encodeEigenMatrixString(command_data_)},
 		{KEY_KP, kp_str_},
 		{KEY_KV, kv_str_}
 	});
-	redis_client_.setEigenMatrixString(KEY_JOINT_POSITIONS, q_);
-	redis_client_.setEigenMatrixString(KEY_JOINT_VELOCITIES, dq_);
-	redis_client_.setEigenMatrixString(KEY_JOINT_TORQUES, Gamma_);
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, q_);
+	redis_.setEigenMatrix(KEY_JOINT_VELOCITIES, dq_);
+	redis_.setEigenMatrix(KEY_JOINT_TORQUES, Gamma_);
 }
 
 void RedisDriver::run() {
@@ -113,7 +137,7 @@ void RedisDriver::run() {
 		timer_.waitForNextLoop();
 
 		// Get Redis control keys in atomic transaction
-		auto values = redis_client_.mget({KEY_CONTROL_MODE, KEY_COMMAND_DATA});
+		auto values = redis_.mget({KEY_CONTROL_MODE, KEY_COMMAND_DATA});
 
 		// Check for BREAK command
 		std::string mode_str = values[0];
@@ -179,7 +203,7 @@ void RedisDriver::run() {
 		}
 
 		// Send kp if changed
-		std::string kp_str_new = redis_client_.get(KEY_KP);
+		std::string kp_str_new = redis_.get(KEY_KP);
 		if (kp_str_new != kp_str_) {
 			kp_ = RedisClient::decodeEigenMatrixString(kp_str_new);
 			if (kp_.size() != DOF) {
@@ -201,7 +225,7 @@ void RedisDriver::run() {
 		}
 
 		// Send kv if changed
-		std::string kv_str_new = redis_client_.get(KEY_KV);
+		std::string kv_str_new = redis_.get(KEY_KV);
 		if (kv_str_new != kv_str_) {
 			kv_ = RedisClient::decodeEigenMatrixString(kv_str_new);
 			if (kv_.size() != DOF) {
@@ -229,17 +253,17 @@ void RedisDriver::run() {
 		// Get Puma joint positions
 		puma_robot_->getStatus(GET_JPOS, data_buffer_);
 		eigenVectorFromBuffer(q_);
-		redis_client_.setEigenMatrixString(KEY_JOINT_POSITIONS, q_);
+		redis_.setEigenMatrix(KEY_JOINT_POSITIONS, q_);
 
 		// Get Puma joint velocities
 		puma_robot_->getStatus(GET_JVEL, data_buffer_);
 		eigenVectorFromBuffer(dq_);
-		redis_client_.setEigenMatrixString(KEY_JOINT_VELOCITIES, dq_);
+		redis_.setEigenMatrix(KEY_JOINT_VELOCITIES, dq_);
 
 		// Get Puma torques
 		puma_robot_->getStatus(GET_TORQ, data_buffer_);
 		eigenVectorFromBuffer(Gamma_);
-		redis_client_.setEigenMatrixString(KEY_JOINT_TORQUES, Gamma_);
+		redis_.setEigenMatrix(KEY_JOINT_TORQUES, Gamma_);
 	}
 }
 

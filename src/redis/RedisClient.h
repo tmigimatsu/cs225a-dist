@@ -16,12 +16,15 @@
 #include <chrono>
 #include <stdexcept>
 
-// TODO: Remove (for deprecated functions)
+#define KEEP_DEPRECATED
+
+#ifdef KEEP_DEPRECATED
 #include <iostream>
 #include <sstream>
 #include <algorithm>
 #include <json/json.h>
 #include <iomanip>
+#endif  // KEEP_DEPRECATED
 
 // #define JSON_DEFAULT
 
@@ -40,12 +43,13 @@ struct redisContextDeleter {
 	void operator()(redisContext *c) { redisFree(c); }
 };
 
-// TODO: Remove (deprecated)
+#ifdef KEEP_DEPRECATED
 struct HiredisServerInfo {
 	std::string hostname_;
     int port_;
     timeval timeout_;
 };
+#endif  // KEEP_DEPRECATED
 
 class RedisClient {
 
@@ -257,7 +261,7 @@ public:
 		set(key, encodeEigenMatrix(value));
 	}
 
-	// TODO: Remove (deprecated)
+#ifdef KEEP_DEPRECATED
 public:
 	redisReply *reply_;
 	HiredisServerInfo server_info_;
@@ -376,6 +380,7 @@ public:
 
 	template<typename Derived>
 	static bool hEigenFromStringArrayCustom(Eigen::MatrixBase<Derived> &, const std::string &);
+#endif  // KEEP_DEPRECATED
 };
 
 //Implementation must be part of header for compile time template specialization
@@ -430,7 +435,7 @@ std::string RedisClient::encodeEigenMatrixString(const Eigen::MatrixBase<Derived
 	return s;
 }
 
-// TODO: Remove (deprecated)
+#ifdef KEEP_DEPRECATED
 template<typename Derived>
 bool RedisClient::hEigentoStringArrayJSON(const Eigen::MatrixBase<Derived>& x, std::string& arg_str)
 {
@@ -485,7 +490,6 @@ bool RedisClient::hEigentoStringArrayJSON(const Eigen::MatrixBase<Derived>& x, s
 	return true;
 }
 
-// TODO: Remove (deprecated)
 template<typename Derived>
 bool RedisClient::hEigenFromStringArrayJSON(Eigen::MatrixBase<Derived>& x, const std::string &arg_str)
 {
@@ -518,7 +522,6 @@ bool RedisClient::hEigenFromStringArrayJSON(Eigen::MatrixBase<Derived>& x, const
 	return true;
 }
 
-// TODO: Remove (deprecated)
 template<typename Derived>
 bool RedisClient::hEigenToStringArrayCustom(const Eigen::MatrixBase<Derived>& x, std::string& arg_str)
 {
@@ -553,7 +556,6 @@ bool RedisClient::hEigenToStringArrayCustom(const Eigen::MatrixBase<Derived>& x,
 	return true;
 }
 
-// TODO: Remove (deprecated)
 template<typename Derived>
 bool RedisClient::hEigenFromStringArrayCustom(Eigen::MatrixBase<Derived>& x, const std::string &arg_str)
 {
@@ -589,6 +591,7 @@ bool RedisClient::hEigenFromStringArrayCustom(Eigen::MatrixBase<Derived>& x, con
 	}
 	return true;
 }
+#endif  // KEEP_DEPRECATED
 
 
 #endif //REDIS_CLIENT_H

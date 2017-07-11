@@ -32,16 +32,17 @@ const int DOF = 6;
 //     [pos_x pos_y pos_z quat_w quat_x quat_y quat_z]
 const int SIZE_OP_SPACE_TASK = 7;
 
+const std::string kRedisKeyPrefix = "cs225a::puma";
 // Redis keys sent to robot
-const std::string KEY_CONTROL_MODE = "cs225a::robot::puma::tasks::control_mode";
-const std::string KEY_COMMAND_DATA = "cs225a::robot::puma::tasks::command_data";
-const std::string KEY_KP           = "cs225a::robot::puma::tasks::kp";
-const std::string KEY_KV           = "cs225a::robot::puma::tasks::kv";
+const std::string KEY_CONTROL_MODE = kRedisKeyPrefix + "tasks::control_mode";
+const std::string KEY_COMMAND_DATA = kRedisKeyPrefix + "tasks::command_data";
+const std::string KEY_KP           = kRedisKeyPrefix + "tasks::kp";
+const std::string KEY_KV           = kRedisKeyPrefix + "tasks::kv";
 
 // Redis keys returned by robot
-const std::string KEY_JOINT_POSITIONS  = "cs225a::robot::puma::sensors::q";
-const std::string KEY_JOINT_VELOCITIES = "cs225a::robot::puma::sensors::dq";
-const std::string KEY_JOINT_TORQUES    = "cs225a::robot::puma::actuators::fgc";
+const std::string KEY_JOINT_POSITIONS  = kRedisKeyPrefix + "sensors::q";
+const std::string KEY_JOINT_VELOCITIES = kRedisKeyPrefix + "sensors::dq";
+const std::string KEY_JOINT_TORQUES    = kRedisKeyPrefix + "actuators::fgc";
 
 // Puma control modes
 const std::map<std::string, ControlMode> CONTROL_MODE_MAP = {
@@ -115,13 +116,8 @@ public:
 	const std::string kDefaultControlModeStr = "FLOAT";
 	const ControlMode kDefaultControlMode = CONTROL_MODE_MAP.at(kDefaultControlModeStr);
 
-	const HiredisServerInfo kRedisServerInfo = {
-		"127.0.0.1",  // hostname
-		6379,         // port
-		{ 1, 500000 } // timeout = 1.5 seconds
-	};
-
-	void init();
+	void init(const std::string& redis_hostname=RedisServer::DEFAULT_IP,
+	          const int redis_port=RedisServer::DEFAULT_PORT);
 	void run();
 
 	volatile bool runloop_ = true;
@@ -134,7 +130,7 @@ public:
 protected:
 
 	LoopTimer timer_;
-	RedisClient redis_client_;
+	RedisClient redis_;
 
 	ControlMode control_mode_ = kDefaultControlMode;
 	Eigen::VectorXd command_data_;
