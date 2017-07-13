@@ -6,7 +6,7 @@ set (PUMA_DRIVER_SOURCE
 	unitMsg.cpp
 	RedisDriver.cpp
 )
-set (PUMA_CONTROLLER_SOURCE DemoController.cpp)
+set (PUMA_CONTROLLER_SOURCE puma_demo_main.cpp)
 
 # Create the executables
 add_executable (puma_driver ${CS225A_COMMON_SOURCE} ${PUMA_DRIVER_SOURCE})
