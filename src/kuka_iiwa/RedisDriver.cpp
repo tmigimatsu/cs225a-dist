@@ -43,6 +43,7 @@ int main (int argc, char** argv)
 	if (argc < 3) {
 		std::cout << "Usage: kuka_iiwa_driver [-s KUKA_IIWA_IP] [-p KUKA_IIWA_PORT]" << std::endl
 		          << "                        [-rs REDIS_SERVER_IP] [-rp REDIS_SERVER_PORT]" << std::endl
+		          << "                        [-t TOOL_XML]" << std::endl
 		          << std::endl
 		          << "This driver provides a Redis interface for communication with the Kuka IIWA." << std::endl
 		          << std::endl
@@ -55,6 +56,8 @@ int main (int argc, char** argv)
 		          << "\t\t\t\tRedis server IP (default " << RedisServer::DEFAULT_IP << ")." << std::endl
 		          << "  -rp REDIS_SERVER_PORT" << std::endl
 		          << "\t\t\t\tRedis server port (default " << RedisServer::DEFAULT_PORT << ")." << std::endl
+		          << "  -t TOOL_XML" << std::endl
+		          << "\t\t\t\tKuka end-effector specification file (default " << KukaIIWA::TOOL_FILENAME << ")." << std::endl
 		          << std::endl;
 	}
 
@@ -63,6 +66,7 @@ int main (int argc, char** argv)
 	int kuka_iiwa_port = KukaIIWA::DEFAULT_PORT;
 	std::string redis_ip = RedisServer::DEFAULT_IP;
 	int redis_port = RedisServer::DEFAULT_PORT;
+	const char *tool_filename = KukaIIWA::TOOL_FILENAME;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-s")) {
 			// Kuka IIWA server IP
@@ -76,11 +80,14 @@ int main (int argc, char** argv)
 		} else if (!strcmp(argv[i], "-rp")) {
 			// Redis server port
 			sscanf(argv[++i], "%d", &redis_port);
+		} else if (!strcmp(argv[i], "-t")) {
+			// Tool XML
+			tool_filename = argv[++i];
 		}
 	}
 
 	// Create new client and UDP connection
-	KUKA::FRI::RedisDriver client(redis_ip, redis_port);
+	KUKA::FRI::RedisDriver client(redis_ip, redis_port, tool_filename);
 	KUKA::FRI::UdpConnection connection;
 
 	// Connect client application to KUKA Sunrise controller.
@@ -139,7 +146,7 @@ static void printCommandMode(KUKA::FRI::EClientCommandMode command_mode) {
 namespace KUKA {
 namespace FRI {
 
-RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
+RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port, const char *tool_filename)
 #ifdef USE_KUKA_LBR_DYNAMICS
 	: dynamics_(kuka::Robot::LBRiiwa)
 #endif
@@ -153,7 +160,7 @@ RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
 
 #ifdef USE_KUKA_LBR_DYNAMICS
 	// Parse tool from tool.xml
-	parseTool();
+	parseTool(tool_filename);
 
 	// Parse rbdl model from urdf
     bool success = RigidBodyDynamics::Addons::URDFReadFromFile(MODEL_FILENAME, &rbdl_model_, false, false);
@@ -416,12 +423,12 @@ void RedisDriver::command()
 
 #ifdef USE_KUKA_LBR_DYNAMICS
 
-void RedisDriver::parseTool()
+void RedisDriver::parseTool(const char *tool_filename)
 {
 	tinyxml2::XMLDocument doc;
-	doc.LoadFile(TOOL_FILENAME);
+	doc.LoadFile(tool_filename);
 	if (!doc.Error()) {
-		printMessage("Loading tool file ["+std::string(TOOL_FILENAME)+"].");
+		printMessage("Loading tool file ["+std::string(tool_filename)+"].");
 		try {
 			std::string mass = doc.
 				FirstChildElement("tool")->
@@ -447,7 +454,7 @@ void RedisDriver::parseTool()
 			printMessage("WARNING : Failed to parse tool file.");
 		}
 	} else {
-		printMessage("WARNING : Could not load tool file ["+std::string(TOOL_FILENAME)+"]");
+		printMessage("WARNING : Could not load tool file ["+std::string(tool_filename)+"]");
 		doc.PrintError();
 	}
 }

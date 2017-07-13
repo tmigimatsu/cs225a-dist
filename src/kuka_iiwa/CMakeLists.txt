@@ -8,7 +8,7 @@ set (CMAKE_VERBOSE_MAKEFILE ON)
 
 cmake_minimum_required(VERSION 3.1)
 
-option(USE_KUKA_LBR_DYNAMICS USE_KUKA_LBR_DYNAMICS ON)
+option(USE_KUKA_LBR_DYNAMICS "USE_KUKA_LBR_DYNAMICS" ON)
 
 
 ################Initialize the executable#################
@@ -32,7 +32,6 @@ set (KUKA_DRIVER_SOURCE
 add_executable (${PROJECT_NAME} ${CS225A_COMMON_SOURCE} ${KUKA_DRIVER_SOURCE})
 
 # KUKA IIWA FRI SDK
-message(${CMAKE_CURRENT_SOURCE_DIR})
 set(FRI_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/FRI-Client-SDK)
 set(FRI_INCLUDE_DIR ${FRI_BASE_DIR}/include)
 find_library(FRI_LIBRARIES FRIClient PATHS ${FRI_BASE_DIR}/lib)

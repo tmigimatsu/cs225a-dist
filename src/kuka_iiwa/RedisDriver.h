@@ -106,7 +106,8 @@ class RedisDriver : public KUKA::FRI::LBRClient
 public:
 
 	RedisDriver(const std::string& redis_ip=RedisServer::DEFAULT_IP,
-	            const int redis_port=RedisServer::DEFAULT_PORT);
+	            const int redis_port=RedisServer::DEFAULT_PORT,
+				const char *tool_filename=KukaIIWA::TOOL_FILENAME);
 
 	/**
 	 * \brief Callback that is called whenever the FRI session state changes.
@@ -200,7 +201,7 @@ protected:
 	/**
  	 * \brief Parse tool.xml file.
 	 */
-	void parseTool();
+	void parseTool(const char *tool_filename);
 
 	// Kuka dynamics
 	kuka::Robot dynamics_;
