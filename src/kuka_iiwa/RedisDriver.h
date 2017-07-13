@@ -54,8 +54,8 @@ const int DEFAULT_PORT = 30200;
 const int DOF = KUKA::FRI::LBRState::NUMBER_OF_JOINTS;
 
 // Path to the urdf model and tool file
-const char MODEL_FILENAME[] = "resources/kuka_iiwa.urdf";
-const char TOOL_FILENAME[] = "../tool.xml";
+const char MODEL_FILENAME[] = "resources/kuka_iiwa_driver/kuka_iiwa.urdf";
+const char TOOL_FILENAME[]  = "resources/kuka_iiwa_driver/tool.xml";
 
 const std::string KEY_PREFIX = "cs225a::kuka_iiwa::";
 // Redis keys sent to robot

@@ -33,6 +33,7 @@ build
 bin
 build_rel
 build_dbg
+compile_commands.json
 
 # VScode Dir
 .vscode

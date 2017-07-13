@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 
-<robot name="Puma">
+<robot name="puma">
 
 	<link name="ground">
 		<inertial>
