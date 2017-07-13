@@ -33,6 +33,7 @@ build
 bin
 build_rel
 build_dbg
+compile_commands.json
 
 # VScode Dir
 .vscode
@@ -46,5 +47,6 @@ build_dbg
 
 # External libraries
 external/*
+!external/NatNetLinux.git
 sai2-simulation
 resources
