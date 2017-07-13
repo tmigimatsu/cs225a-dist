@@ -156,9 +156,9 @@ RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
 	parseTool();
 
 	// Parse rbdl model from urdf
-    bool success = RigidBodyDynamics::Addons::URDFReadFromFile(kModelFilename, &rbdl_model_, false, false);
+    bool success = RigidBodyDynamics::Addons::URDFReadFromFile(MODEL_FILENAME, &rbdl_model_, false, false);
     if (!success) {
-		std::cout << "Error loading model [" << kModelFilename << "]" << std::endl;
+		std::cout << "Error loading model [" << MODEL_FILENAME << "]" << std::endl;
 		exit(1);
     }
 #endif
@@ -260,8 +260,9 @@ void RedisDriver::command()
 		}
 	} catch (std::exception& e) {
 		std::cout << e.what() << std::endl
-		          << "Going to fail mode." << std::endl;
-		exit_program_ = true;
+		          << "Setting command torques and joint positions to 0." << std::endl;
+		command_torques_.setZero();
+		q_des_.setZero();
 	}
 
 	if (exit_program_) {
@@ -275,10 +276,11 @@ void RedisDriver::command()
 	if (fri_command_mode_ == KUKA::FRI::TORQUE) {
 		// Find tool Jacobian
 		Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, DOF);
-		dynamics_.getJacobian(J, q_, tool_com_, DOF);
+		Eigen::VectorXd q_temp = q_;
+		dynamics_.getJacobian(J, q_temp, tool_com_, DOF);
 
 		// Find tool weight
-		Eigen::VectorXd F_grav_tool = Eigen::MatrixXd::Zero(6);
+		Eigen::VectorXd F_grav_tool = Eigen::VectorXd::Zero(6);
 		F_grav_tool(2) = -9.81 * tool_mass_;
 
 		// Compensate for tool weight
@@ -298,7 +300,7 @@ void RedisDriver::command()
 
 		case KUKA::FRI::POSITION:
 			// Joint limits
-			if ((q_des_.array().abs() < JOINT_LIMITS).any()) {
+			if ((q_des_.array().abs() > JOINT_LIMITS).any()) {
 				std::cout << "WARNING : q_des ["
 				          << q_des_.transpose() << "] exceeds limits ["
 				          << JOINT_LIMITS.transpose() << "]." << std::endl;
@@ -317,7 +319,7 @@ void RedisDriver::command()
 			// ********************************************************************
 
 			// Torque saturation
-			if ((command_torques_.array().abs() < TORQUE_LIMITS).any()) {
+			if ((command_torques_.array().abs() > TORQUE_LIMITS).any()) {
 				std::cout << "WARNING : command torques ["
 				          << command_torques_.transpose() << "] exceeds limits ["
 				          << TORQUE_LIMITS.transpose() << "]." << std::endl;
@@ -325,17 +327,17 @@ void RedisDriver::command()
 			}
 
 			// Jerk saturation
-			Eigen::MatrixXd jerk = command_torques_ - command_torques_prev_;
-			if ((jerk.array().abs() > JERK_LIMITS).any()) {
+			Eigen::ArrayXd jerk = (command_torques_ - command_torques_prev_).array();
+			if ((jerk.abs() > JERK_LIMITS).any()) {
 				std::cout << "WARNING : jerk ["
 				          << jerk.transpose() << "] exceeds limits ["
 				          << JERK_LIMITS.transpose() << "]." << std::endl;
-				jerk = jerk.array().min(JERK_LIMITS).max(-JERK_LIMITS).matrix();
-				command_torques_ = command_torques_prev_ + jerk;
+				jerk = jerk.min(JERK_LIMITS).max(-JERK_LIMITS);
+				command_torques_ = command_torques_prev_ + jerk.matrix();
 			}
 
 			// Velocity limits
-			if ((dq_.array().abs() < VELOCITY_LIMITS).any()) {
+			if ((dq_.array().abs() > VELOCITY_LIMITS).any()) {
 				std::cout << "ERROR : dq ["
 				          << dq_.transpose() << "] exceeds limits ["
 				          << VELOCITY_LIMITS.transpose() << "]." << std::endl
@@ -344,7 +346,7 @@ void RedisDriver::command()
 			}
 
 			// Joint limits
-			if ((q_.array().abs() < JOINT_LIMITS).any()) {
+			if ((q_.array().abs() > JOINT_LIMITS).any()) {
 				std::cout << "ERROR : q ["
 				          << q_.transpose() << "] exceeds limits ["
 				          << JOINT_LIMITS.transpose() << "]." << std::endl
@@ -417,9 +419,9 @@ void RedisDriver::command()
 void RedisDriver::parseTool()
 {
 	tinyxml2::XMLDocument doc;
-	doc.LoadFile(kToolFilename);
+	doc.LoadFile(TOOL_FILENAME);
 	if (!doc.Error()) {
-		printMessage("Loading tool file ["+std::string(kToolFilename)+"].");
+		printMessage("Loading tool file ["+std::string(TOOL_FILENAME)+"].");
 		try {
 			std::string mass = doc.
 				FirstChildElement("tool")->
@@ -445,7 +447,7 @@ void RedisDriver::parseTool()
 			printMessage("WARNING : Failed to parse tool file.");
 		}
 	} else {
-		printMessage("WARNING : Could not load tool file ["+std::string(kToolFilename)+"]");
+		printMessage("WARNING : Could not load tool file ["+std::string(TOOL_FILENAME)+"]");
 		doc.PrintError();
 	}
 }
