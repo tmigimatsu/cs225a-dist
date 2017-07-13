@@ -29,8 +29,6 @@ set (KUKA_DRIVER_SOURCE
 #Set the executable to be built and its required linked libraries (the ones in the /usr/lib dir)
 add_executable (${PROJECT_NAME} ${CS225A_COMMON_SOURCE} ${KUKA_DRIVER_SOURCE})
 
-target_link_libraries(${PROJECT_NAME} ${CS225A_COMMON_LIBRARIES})
-
 # KUKA IIWA FRI SDK
 message(${CMAKE_CURRENT_SOURCE_DIR})
 set(FRI_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/FRI-Client-SDK)
@@ -58,12 +56,20 @@ SET(FILTERS_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/filters/)
 include_directories(${FRI_INCLUDE_DIR} ${FILTERS_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} ${CS225A_COMMON_LIBRARIES} ${FRI_LIBRARIES})
 
+# Hold pos demo controller
+add_executable(kuka_hold_pos ${CS225A_COMMON_SOURCE} kuka_hold_pos_main.cpp)
+target_link_libraries(kuka_hold_pos ${CS225A_COMMON_LIBRARIES})
+
 # export resources such as model files.
 # NOTE: this requires an install build
 SET(RESOURCE_DIR ${CS225A_BINARY_DIR}/resources)
 FILE(MAKE_DIRECTORY ${RESOURCE_DIR})
 SET(APP_RESOURCE_DIR ${RESOURCE_DIR}/kuka_iiwa_driver)
 FILE(MAKE_DIRECTORY ${APP_RESOURCE_DIR})
-message(APP_RESOURCE_DIR)
 FILE(COPY kuka_iiwa.urdf DESTINATION ${APP_RESOURCE_DIR})
 FILE(COPY tool.xml DESTINATION ${APP_RESOURCE_DIR})
+
+SET(KUKA_HOLD_POS_RESOURCE_DIR ${RESOURCE_DIR}/kuka_hold_pos)
+FILE(MAKE_DIRECTORY ${KUKA_HOLD_POS_RESOURCE_DIR})
+FILE(COPY kuka_iiwa.urdf DESTINATION ${KUKA_HOLD_POS_RESOURCE_DIR})
+FILE(COPY world.urdf DESTINATION ${KUKA_HOLD_POS_RESOURCE_DIR})
