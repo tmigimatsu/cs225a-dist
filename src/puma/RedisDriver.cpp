@@ -18,7 +18,6 @@ using namespace Puma;
  **********************/
 
 static volatile bool g_runloop = true;
-static RobotCom *g_puma_robot = nullptr;
 
 static void setCtrlCHandler(void (*userCallback)(int)) {
 	struct sigaction sigIntHandler;
@@ -28,13 +27,7 @@ static void setCtrlCHandler(void (*userCallback)(int)) {
 	sigaction(SIGINT, &sigIntHandler, NULL);
 }
 
-static void stop() {
-	if (g_puma_robot != nullptr)
-		g_puma_robot->_break();
-	g_runloop = false;
-	std::cout << "Sent BREAK command to Puma. Stopping run loop." << std::endl;
-}
-static void stop(int signal) { stop(); }
+static void stop(int signal) { g_runloop = false; }
 
 // Return true if any elements in the Eigen::MatrixXd are NaN
 template<typename Derived>
@@ -54,9 +47,11 @@ int main(int argc, char** argv)
 		          << "  -s REDIS_SERVER_IP" << std::endl
 		          << "\t\t\t\tRedis server IP (default " << RedisServer::DEFAULT_IP << ")." << std::endl
 		          << "  -p REDIS_SERVER_PORT" << std::endl
-		          << "\t\t\t\tRedis server port (default " << RedisServer::DEFAULT_PORT << ")." << std::endl;
+		          << "\t\t\t\tRedis server port (default " << RedisServer::DEFAULT_PORT << ")." << std::endl
+		          << std::endl;
 	}
 
+	// Parse arguments
 	std::string redis_ip = RedisServer::DEFAULT_IP;
 	int redis_port = RedisServer::DEFAULT_PORT;
 	for (int i = 1; i < argc; i++) {
@@ -75,7 +70,6 @@ int main(int argc, char** argv)
 	std::cout << "Successfully connected to Puma server." << std::endl;
 
 	// Set up ctrl-c handler
-	g_puma_robot = pumaDriver.puma_robot_.get();
 	setCtrlCHandler(stop);
 
 	// Run forever
@@ -122,7 +116,7 @@ void RedisDriver::init(const std::string& redis_hostname,
 	// Initialize Redis keys
 	redis_.mset({
 		{KEY_CONTROL_MODE, kDefaultControlModeStr},
-		{KEY_COMMAND_DATA, RedisClient::encodeEigenMatrixString(command_data_)},
+		{KEY_COMMAND_DATA, RedisClient::encodeEigenMatrix(command_data_)},
 		{KEY_KP, kp_str_},
 		{KEY_KV, kv_str_}
 	});
@@ -150,7 +144,6 @@ void RedisDriver::run() {
 		// Parse control mode
 		auto mode_keyval = CONTROL_MODE_MAP.find(mode_str);
 		if (mode_keyval == CONTROL_MODE_MAP.end()) {
-			stop();
 			std::cerr << "ERROR: Redis key (" << KEY_CONTROL_MODE << ", "
 			         << mode_str << ") is not a known control type." << std::endl;
 			break;
@@ -158,9 +151,13 @@ void RedisDriver::run() {
 		control_mode_ = mode_keyval->second;
 
 		// Filter command data
-		command_data_ = RedisClient::decodeEigenMatrixString(values[1]);
+		try {
+			command_data_ = RedisClient::decodeEigenMatrix(values[1]);
+		} catch (std::exception& e) {
+			std::cerr << e.what() << std::endl;
+			break;
+		}
 		if (isnan(command_data_)) {
-			stop();
 			std::cerr << "ERROR: Redis key (" << KEY_COMMAND_DATA << ", "
 			         << command_data_.transpose()
 			         << ") contains NaN values." << std::endl;
@@ -178,7 +175,6 @@ void RedisDriver::run() {
 			case NJGOTO:  case JGOTO:
 			case NJTRACK: case JTRACK:
 				if (command_data_.size() != DOF) {
-					stop();
 					std::cerr << "ERROR: Redis key (" << KEY_COMMAND_DATA << ", "
 					          << command_data_.transpose() << ") must be of length "
 					          << DOF << " for control mode_ " << control_mode_ << "."
@@ -190,7 +186,6 @@ void RedisDriver::run() {
 			case NGOTO:   case GOTO:
 			case NTRACK:  case TRACK:
 				if (command_data_.size() != SIZE_OP_SPACE_TASK) {
-					stop();
 					std::cerr << "ERROR: Redis key (" << KEY_COMMAND_DATA << ", "
 					          << command_data_.transpose() << ") must be of length "
 					          << SIZE_OP_SPACE_TASK << " for control mode_ "
@@ -205,15 +200,18 @@ void RedisDriver::run() {
 		// Send kp if changed
 		std::string kp_str_new = redis_.get(KEY_KP);
 		if (kp_str_new != kp_str_) {
-			kp_ = RedisClient::decodeEigenMatrixString(kp_str_new);
+			try {
+				kp_ = RedisClient::decodeEigenMatrix(kp_str_new);
+			} catch (std::exception& e) {
+				std::cerr << e.what() << std::endl;
+				break;
+			}
 			if (kp_.size() != DOF) {
-				stop();
 				std::cerr << "ERROR: Redis key (" << KEY_KP << ", "
 			         	 << kp_.transpose() << ") must be of length " << DOF
 			         	 << "." << std::endl;
 				break;
 			} else if (isnan(kp_)) {
-				stop();
 				std::cerr << "ERROR: Redis key (" << KEY_KP << ", "
 				          << kp_.transpose()
 				          << ") contains NaN values." << std::endl;
@@ -227,15 +225,18 @@ void RedisDriver::run() {
 		// Send kv if changed
 		std::string kv_str_new = redis_.get(KEY_KV);
 		if (kv_str_new != kv_str_) {
-			kv_ = RedisClient::decodeEigenMatrixString(kv_str_new);
+			try {
+				kv_ = RedisClient::decodeEigenMatrix(kv_str_new);
+			} catch (std::exception& e) {
+				std::cerr << e.what() << std::endl;
+				break;
+			}
 			if (kv_.size() != DOF) {
-				stop();
 				std::cerr << "ERROR: Redis key (" << KEY_KV << ", "
 			         	 << kv_.transpose() << ") must be of length " << DOF
 			         	 << "." << std::endl;
 				break;
 			} else if (isnan(kv_)) {
-				stop();
 				std::cerr << "ERROR: Redis key (" << KEY_KV << ", "
 				          << kv_.transpose()
 				          << ") contains NaN values." << std::endl;
@@ -265,5 +266,9 @@ void RedisDriver::run() {
 		eigenVectorFromBuffer(Gamma_);
 		redis_.setEigenMatrix(KEY_JOINT_TORQUES, Gamma_);
 	}
+
+	// Break robot
+	puma_robot_->_break();
+	std::cout << "Sent BREAK command to Puma. Stopping run loop." << std::endl;
 }
 

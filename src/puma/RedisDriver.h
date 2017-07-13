@@ -5,6 +5,9 @@
  *      Author: Toki Migimatsu
  */
 
+#ifndef PUMA_REDIS_DRIVER_H
+#define PUMA_REDIS_DRIVER_H
+
 #include "RobotCom.h"
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
@@ -16,7 +19,6 @@
 #include <Eigen/Core>
 
 namespace Puma {
-
 
 /*************
  * Constants *
@@ -32,17 +34,17 @@ const int DOF = 6;
 //     [pos_x pos_y pos_z quat_w quat_x quat_y quat_z]
 const int SIZE_OP_SPACE_TASK = 7;
 
-const std::string kRedisKeyPrefix = "cs225a::puma";
+const std::string KEY_PREFIX = "cs225a::puma::";
 // Redis keys sent to robot
-const std::string KEY_CONTROL_MODE = kRedisKeyPrefix + "tasks::control_mode";
-const std::string KEY_COMMAND_DATA = kRedisKeyPrefix + "tasks::command_data";
-const std::string KEY_KP           = kRedisKeyPrefix + "tasks::kp";
-const std::string KEY_KV           = kRedisKeyPrefix + "tasks::kv";
+const std::string KEY_CONTROL_MODE = KEY_PREFIX + "tasks::control_mode";
+const std::string KEY_COMMAND_DATA = KEY_PREFIX + "tasks::command_data";
+const std::string KEY_KP           = KEY_PREFIX + "tasks::kp";
+const std::string KEY_KV           = KEY_PREFIX + "tasks::kv";
 
 // Redis keys returned by robot
-const std::string KEY_JOINT_POSITIONS  = kRedisKeyPrefix + "sensors::q";
-const std::string KEY_JOINT_VELOCITIES = kRedisKeyPrefix + "sensors::dq";
-const std::string KEY_JOINT_TORQUES    = kRedisKeyPrefix + "actuators::fgc";
+const std::string KEY_JOINT_POSITIONS  = KEY_PREFIX + "sensors::q";
+const std::string KEY_JOINT_VELOCITIES = KEY_PREFIX + "sensors::dq";
+const std::string KEY_JOINT_TORQUES    = KEY_PREFIX + "actuators::fgc";
 
 // Puma control modes
 const std::map<std::string, ControlMode> CONTROL_MODE_MAP = {
@@ -148,3 +150,4 @@ protected:
 
 }
 
+#endif  // PUMA_REDIS_DRIVER_H
