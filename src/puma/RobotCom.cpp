@@ -17,6 +17,7 @@ using namespace std;
 using namespace Puma;
 
 static const string DEFAULT_SERVER = "192.168.2.2"; //youbot server
+static const int PR_NETWORK_PORT_CONTROL = 8189;
 
 /*********************************************************************
  * RobotCom constructor:  Create a socket connection to the system that
@@ -25,7 +26,7 @@ static const string DEFAULT_SERVER = "192.168.2.2"; //youbot server
 RobotCom::RobotCom()
 {
 	InitByteCounter();
-	bufferSize_ = BUFFER_SIZE; //nbytes + InitByteCounter();
+	bufferSize_ = MAX_MSG_SIZE; //nbytes + InitByteCounter();
 	buffer_ = new char[bufferSize_];
 
 	memset(buffer_,'\0',bufferSize_);
@@ -188,13 +189,23 @@ void RobotCom::jointControl( ControlMode mode, float q0, float q1, float q2, flo
     sendMessage(mOut);
 }
 
-void RobotCom::setStatus( ConstantType set_type, float *arg, int numArgs ) {
+void RobotCom::setStatus( ConstantType set_type, ControlMode control_mode, float *arg, int numArgs ) {
 	CMsg mOut;
 	mOut.Init();
 	mOut.WriteMessageType(SET_CONSTANT);
 	mOut.WriteInt(set_type);
+    mOut.WriteInt(control_mode);
 	if (numArgs > 0)
 		mOut.WriteFloat(arg, numArgs);
+	sendMessage(mOut);
+}
+
+void RobotCom::setConstant( ConstantType set_type, float arg ) {
+	CMsg mOut;
+	mOut.Init();
+	mOut.WriteMessageType(SET_CONSTANT);
+	mOut.WriteInt(set_type);
+	mOut.WriteFloat(arg);
 	sendMessage(mOut);
 }
 
@@ -227,24 +238,30 @@ void RobotCom::getStatus( UiToServoMessageType get_type, float *arg )
 	mOut.WriteInt( GUI );
 	sendMessage(mOut);
 
-	short expectedMesgType = NO_MSSG;
+	uint16_t expectedMesgType = NO_MSSG;
+	int numData; // TODO: remove
 
 	switch( get_type )
 	{
 	case GET_CURTIME:
 		expectedMesgType = CURTIME_DATA;
+		numData = 1;
 		break;
 	case GET_JPOS:
 		expectedMesgType = JPOS_DATA;
+		numData = 6;
 		break;
 	case GET_JVEL:
 		expectedMesgType = JVEL_DATA;
+		numData = 6;
 		break;
 	case GET_TORQ:
 		expectedMesgType = TORQ_DATA;
+		numData = 6;
 		break;
 	case GET_IPOS:
 		expectedMesgType = IPOS_DATA;
+		numData = 7;
 		break;
 	default:
 		std::cout<<"Warning: RobotCom::getStatus: Unsupported messagetype provided!"<<std::endl;
@@ -257,9 +274,7 @@ void RobotCom::getStatus( UiToServoMessageType get_type, float *arg )
 		if( IsDataAvailable() )
 		{
 			CMappedMsg mIn = GetMsg();
-			short mesgType = mIn.ReadMessageType();
-
-			int numData = mIn.ReadInt();
+			uint16_t mesgType = mIn.ReadMessageType();
 
 			if( mesgType == expectedMesgType )
 			{
@@ -312,7 +327,7 @@ int RobotCom::ready()
     if (Peek(s,2) < 2)
       return -1;
     size_ = Unpack2B(s);
-    //fprintf(stderr, "got message of size %d\n", size_);
+    // printf("got message of size %d\n", size_);
     memset(buffer_,'\0',bufferSize_);
     InitByteCounter();
     readSize_ = 0;
@@ -356,7 +371,7 @@ int RobotCom::Peek()
   int arg=0;
 #ifndef WIN32
 #ifdef PR_QNX
-  if (ioctl((short)robotSocket,FIONREAD,&arg)<0)
+  if (ioctl((uint16_t)robotSocket,FIONREAD,&arg)<0)
 #else // PR_QNX
   if (ioctl(robotSocket,FIONREAD,&arg)<0)
 #endif // PR_QNX
@@ -386,9 +401,9 @@ int RobotCom::Peek( char *buff, int nbytes )
   return arg;
 }
 
-short RobotCom::Unpack2B( char *text )
+uint16_t RobotCom::Unpack2B( char *text )
 {
-  return ntohs(*(short *)text);
+  return ntohs(*(uint16_t *)text);
   //return *(short *)text;
 }
 

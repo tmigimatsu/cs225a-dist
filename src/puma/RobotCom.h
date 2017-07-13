@@ -1,7 +1,6 @@
 #ifndef _ROBOT_COM_H_
 #define _ROBOT_COM_H_
 
-#define BUFFER_SIZE (PR_NETWORK_BUFFER_SIZE + 4)
 #include "unitMsg.h"
 #include "cs225.h"
 
@@ -27,7 +26,9 @@ public:
 	//            GET_IPOS (gv.x)
 	void getStatus( UiToServoMessageType get_type, float *arg );
 
-	void setStatus( ConstantType set_type, float *arg, int numArgs );
+	void setStatus( ConstantType set_type, ControlMode control_mode, float *arg, int numArgs );
+
+	void setConstant( ConstantType set_type, float arg );
 
 	// voltage = -10.0 ~ + 10.0
     void controlGripper( float voltage );
@@ -52,14 +53,14 @@ private:
 	int Receive();
 	int Peek( char *buff, int nbytes );
 	int Peek();
-	short  Unpack2B( char *text );
+	uint16_t  Unpack2B( char *text );
 	int InitByteCounter();
 	
 	char *buffer_;
 	int bufferSize_;
 	int byteCounter_;
 
-	short size_;
+	uint16_t size_;
 	int readSize_;
 
 };
