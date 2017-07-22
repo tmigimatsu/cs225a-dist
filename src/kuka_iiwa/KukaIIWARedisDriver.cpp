@@ -328,9 +328,8 @@ void KukaIIWARedisDriver::command()
 		case KUKA::FRI::POSITION:
 			// Joint limits
 			if ((q_des_.array().abs() > JOINT_LIMITS).any()) {
-				std::cout << "WARNING : q_des ["
-				          << q_des_.transpose() << "] exceeds limits ["
-				          << JOINT_LIMITS.transpose() << "]." << std::endl;
+				std::cout << "WARNING : command positions [" << q_des_.transpose() << "]" << std::endl
+				          << "          exceed limits     [" << JOINT_LIMITS.transpose() << "]." << std::endl;
 				q_des_ = q_des_.array().min(JOINT_LIMITS).max(-JOINT_LIMITS).matrix();
 			}
 			break;
@@ -347,36 +346,32 @@ void KukaIIWARedisDriver::command()
 
 			// Torque saturation
 			if ((command_torques_.array().abs() > TORQUE_LIMITS).any()) {
-				std::cout << "WARNING : command torques ["
-				          << command_torques_.transpose() << "] exceeds limits ["
-				          << TORQUE_LIMITS.transpose() << "]." << std::endl;
+				std::cout << "WARNING : command torques [" << command_torques_.transpose() << "]" << std::endl
+				          << "          exceed limits   [" << TORQUE_LIMITS.transpose() << "]." << std::endl;
 				command_torques_ = command_torques_.array().min(TORQUE_LIMITS).max(-TORQUE_LIMITS).matrix();
 			}
 
 			// Jerk saturation
 			Eigen::ArrayXd jerk = (command_torques_ - command_torques_prev_).array();
 			if ((jerk.abs() > JERK_LIMITS).any()) {
-				std::cout << "WARNING : jerk ["
-				          << jerk.transpose() << "] exceeds limits ["
-				          << JERK_LIMITS.transpose() << "]." << std::endl;
+				std::cout << "WARNING : command jerk   [" << jerk.transpose() << "]" << std::endl
+				          << "          exceeds limits [" << JERK_LIMITS.transpose() << "]." << std::endl;
 				jerk = jerk.min(JERK_LIMITS).max(-JERK_LIMITS);
 				command_torques_ = command_torques_prev_ + jerk.matrix();
 			}
 
 			// Velocity limits
 			if ((dq_.array().abs() > VELOCITY_LIMITS).any()) {
-				std::cout << "ERROR : dq ["
-				          << dq_.transpose() << "] exceeds limits ["
-				          << VELOCITY_LIMITS.transpose() << "]." << std::endl
+				std::cout << "ERROR : joint velocities [" << dq_.transpose() << "]" << std::endl
+				          << "        exceed limits    [" << VELOCITY_LIMITS.transpose() << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
 
 			// Joint limits
 			if ((q_.array().abs() > JOINT_LIMITS).any()) {
-				std::cout << "ERROR : q ["
-				          << q_.transpose() << "] exceeds limits ["
-				          << JOINT_LIMITS.transpose() << "]." << std::endl
+				std::cout << "ERROR : joint positions [" << q_.transpose() << "]" << std::endl
+				          << "        exceed limits   [" << JOINT_LIMITS.transpose() << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
@@ -385,15 +380,13 @@ void KukaIIWARedisDriver::command()
 			// Wrist height limits
 			Eigen::Vector3d pos_wrist = CalcBodyToBaseCoordinates(rbdl_model_, q_, 6, Eigen::Vector3d::Zero(), true);
 			if (pos_wrist(2) <= POS_WRIST_LIMITS[0]) {
-				std::cout << "ERROR : wrist height ["
-				          << pos_wrist(2) << "] exceeds lower limit ["
-				          << POS_WRIST_LIMITS[0] << "]." << std::endl
+				std::cout << "ERROR : wrist height        [" << pos_wrist(2) << "]" << std::endl
+				          << "        exceeds lower limit [" << POS_WRIST_LIMITS[0] << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			} else if (pos_wrist(2) >= POS_WRIST_LIMITS[1]) {
-				std::cout << "ERROR : wrist height ["
-				          << pos_wrist(2) << "] exceeds upper limit ["
-				          << POS_WRIST_LIMITS[1] << "]." << std::endl
+				std::cout << "ERROR : wrist height        [" << pos_wrist(2) << "]" << std::endl
+				          << "        exceeds upper limit [" << POS_WRIST_LIMITS[1] << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
