@@ -88,10 +88,7 @@ const Eigen::ArrayXd JERK_LIMITS     = Eigen::Array<double,DOF,1>(_ARR_JERK_LIMI
 // Height limits for the wrist [low high]
 const double POS_WRIST_LIMITS[2] = {0.45, 1.05};
 
-}
-
-namespace KUKA {
-namespace FRI {
+const Eigen::VectorXd HOME_POSITION = Eigen::Matrix<double,DOF,1>({90, -30, 0, 60, 0, -90, 0}) * M_PI/180.0;
 
 /********************************
  * RedisDriver Class Definition *
@@ -136,6 +133,8 @@ protected:
 
 	// Cutoff frequency for velocity filter, in the range of (0, 0.5) of sampling frequency
 	const double kCutoffFreq = 0.1;
+
+	const int kInitTorqueWait = 1.0;
 
 	/***** State Variables *****/
 
@@ -215,7 +214,6 @@ protected:
 
 };
 
-} //namespace FRI
-} //namespace KUKA
+}  // namespace KukaIIWA
 
 #endif  // KUKA_IIWA_REDIS_DRIVER_H
