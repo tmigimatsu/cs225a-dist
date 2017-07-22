@@ -38,11 +38,9 @@ public:
 		command_torques_(dof),
 		Jv_(3, dof),
 		N_(dof, dof),
-		Lambda_x_(3, 3),
 		g_(dof),
 		q_des_(dof),
-		dq_des_(dof),
-		controller_state_(REDIS_SYNCHRONIZATION)
+		dq_des_(dof)
 	{
 		command_torques_.setZero();
 
@@ -132,13 +130,13 @@ protected:
 	OptiTrackClient optitrack_;
 
 	// State machine
-	ControllerState controller_state_;
+	ControllerState controller_state_ = REDIS_SYNCHRONIZATION;
 
 	// Controller variables
 	Eigen::VectorXd command_torques_;
 	Eigen::MatrixXd Jv_;
 	Eigen::MatrixXd N_;
-	Eigen::MatrixXd Lambda_x_;
+	Eigen::MatrixXd Lambda_x_ = Eigen::MatrixXd(3, 3);
 	Eigen::VectorXd g_;
 	Eigen::Vector3d x_, dx_;
 	Eigen::VectorXd q_des_, dq_des_;

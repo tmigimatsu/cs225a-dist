@@ -166,11 +166,11 @@ KukaIIWARedisDriver::KukaIIWARedisDriver(const std::string& redis_ip, const int 
 
 	// Make sure simulator isn't running by checking for nonzero joint
 	// positions and velocities.
-	redis_.set(KEY_JOINT_POSITIONS, Eigen::VectorXd::Zero(DOF));
-	redis_.set(KEY_JOINT_VELOCITIES, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_VELOCITIES, Eigen::VectorXd::Zero(DOF));
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	Eigen::VectorXd q = redis_.get(KEY_JOINT_POSITIONS);
-	Eigen::VectorXd dq = redis_.get(KEY_JOINT_VELOCITIES);
+	Eigen::VectorXd q = redis_.getEigenMatrix(KEY_JOINT_POSITIONS);
+	Eigen::VectorXd dq = redis_.getEigenMatrix(KEY_JOINT_VELOCITIES);
 	if ((q.array() != 0).any() || (dq.array() != 0).any()) {
 		std::cout << "ERROR : Another application is setting "
 			      << KEY_JOINT_POSITIONS << " or " << KEY_JOINT_VELOCITIES
@@ -180,10 +180,10 @@ KukaIIWARedisDriver::KukaIIWARedisDriver(const std::string& redis_ip, const int 
 
 	// Make sure controller isn't running by setting the joint position to home
 	// in Redis and checking for nonzero command torques.
-	redis_.set(KEY_COMMAND_TORQUES, Eigen::VectorXd::Zero(DOF));
-	redis_.set(KEY_JOINT_POSITIONS, HOME_POSITION);
+	redis_.setEigenMatrix(KEY_COMMAND_TORQUES, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, HOME_POSITION);
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
-	Eigen::VectorXd command_torques = redis_.get(KEY_COMMAND_TORQUES);
+	Eigen::VectorXd command_torques = redis_.getEigenMatrix(KEY_COMMAND_TORQUES);
 	if ((command_torques.array() != 0).any()) {
 		std::cout << "ERROR : Another application is setting " << KEY_COMMAND_TORQUES
 			      << ". Controllers must be run AFTER the driver has initialized." << std::endl;
