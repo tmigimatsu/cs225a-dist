@@ -19,7 +19,7 @@
  * Author: Toki Migimatsu <takatoki@stanford.edu>
  */
 
-#include "RedisDriver.h"
+#include "KukaIIWARedisDriver.h"
 #include "ButterworthFilter.h"
 #include "redis/RedisClient.h"
 
@@ -82,7 +82,7 @@ int main (int argc, char** argv)
 	}
 
 	// Create new client and UDP connection
-	KUKA::FRI::RedisDriver client(redis_ip, redis_port);
+	KUKA::FRI::KukaIIWARedisDriver client(redis_ip, redis_port);
 	KUKA::FRI::UdpConnection connection;
 
 	// Connect client application to KUKA Sunrise controller.
@@ -137,7 +137,10 @@ static void printCommandMode(KUKA::FRI::EClientCommandMode command_mode) {
 	}
 }
 
-RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
+namespace KUKA {
+namespace FRI {
+
+KukaIIWARedisDriver::KukaIIWARedisDriver(const std::string& redis_ip, const int redis_port)
 #ifdef USE_KUKA_LBR_DYNAMICS
 	: dynamics_(kuka::Robot::LBRiiwa)
 #endif
@@ -189,7 +192,7 @@ RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
 }
 
 
-void RedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ESessionState newState)
+void KukaIIWARedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ESessionState newState)
 {
 	LBRClient::onStateChange(oldState, newState);
 	// react on state change events
@@ -217,7 +220,7 @@ void RedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ES
 }
 
 
-void RedisDriver::waitForCommand()
+void KukaIIWARedisDriver::waitForCommand()
 {
 	// In waitForCommand(), the joint values have to be mirrored. Which is done,
 	// by calling the base method.
@@ -234,7 +237,7 @@ void RedisDriver::waitForCommand()
 }
 
 
-void RedisDriver::command()
+void KukaIIWARedisDriver::command()
 {
 	// In command(), the joint values have to be sent. Which is done by calling
 	// the base method.
@@ -439,7 +442,7 @@ void RedisDriver::command()
 
 
 #ifdef USE_KUKA_LBR_DYNAMICS
-void RedisDriver::parseTool()
+void KukaIIWARedisDriver::parseTool()
 {
 	tinyxml2::XMLDocument doc;
 	doc.LoadFile(TOOL_FILENAME);
@@ -475,3 +478,6 @@ void RedisDriver::parseTool()
 	}
 }
 #endif  // USE_KUKA_LBR_DYNAMICS
+
+}  // namespace KUKA
+}  // namespace FRI
