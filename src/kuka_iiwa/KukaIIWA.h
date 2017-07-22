@@ -1,6 +1,8 @@
 #ifndef SAI2_KUKA_IIWA_H
 #define SAI2_KUKA_IIWA_H
 
+#include "redis/RedisClient.h"
+
 #include <string>
 
 #include <Eigen/Core>
@@ -21,7 +23,7 @@ const int DOF = 7;
 const char MODEL_FILENAME[] = "resources/kuka_iiwa_driver/kuka_iiwa.urdf";
 const char TOOL_FILENAME[]  = "resources/kuka_iiwa_driver/tool.xml";
 
-const std::string KEY_PREFIX = "cs225a::kuka_iiwa::";
+const std::string KEY_PREFIX = RedisServer::KEY_PREFIX + "kuka_iiwa::";
 // Redis keys sent to robot
 const std::string KEY_COMMAND_TORQUES         = KEY_PREFIX + "actuators::fgc";
 const std::string KEY_DESIRED_JOINT_POSITIONS = KEY_PREFIX + "actuators::q_des";

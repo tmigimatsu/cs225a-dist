@@ -23,18 +23,18 @@ public:
 		        const std::string &robot_name) :
 		robot(robot),
 		dof(robot->dof()),
-		KEY_COMMAND_TORQUES (kRedisKeyPrefix + robot_name + "::actuators::fgc"),
-		KEY_EE_POS          (kRedisKeyPrefix + robot_name + "::tasks::ee_pos"),
-		KEY_EE_POS_DES      (kRedisKeyPrefix + robot_name + "::tasks::ee_pos_des"),
-		KEY_JOINT_POSITIONS (kRedisKeyPrefix + robot_name + "::sensors::q"),
-		KEY_JOINT_VELOCITIES(kRedisKeyPrefix + robot_name + "::sensors::dq"),
-		KEY_TIMESTAMP       (kRedisKeyPrefix + robot_name + "::timestamp"),
-		KEY_KP_POSITION     (kRedisKeyPrefix + robot_name + "::tasks::kp_pos"),
-		KEY_KV_POSITION     (kRedisKeyPrefix + robot_name + "::tasks::kv_pos"),
-		KEY_KP_ORIENTATION  (kRedisKeyPrefix + robot_name + "::tasks::kp_ori"),
-		KEY_KV_ORIENTATION  (kRedisKeyPrefix + robot_name + "::tasks::kv_ori"),
-		KEY_KP_JOINT        (kRedisKeyPrefix + robot_name + "::tasks::kp_joint"),
-		KEY_KV_JOINT        (kRedisKeyPrefix + robot_name + "::tasks::kv_joint"),
+		KEY_COMMAND_TORQUES (RedisServer::KEY_PREFIX + robot_name + "::actuators::fgc"),
+		KEY_EE_POS          (RedisServer::KEY_PREFIX + robot_name + "::tasks::ee_pos"),
+		KEY_EE_POS_DES      (RedisServer::KEY_PREFIX + robot_name + "::tasks::ee_pos_des"),
+		KEY_JOINT_POSITIONS (RedisServer::KEY_PREFIX + robot_name + "::sensors::q"),
+		KEY_JOINT_VELOCITIES(RedisServer::KEY_PREFIX + robot_name + "::sensors::dq"),
+		KEY_TIMESTAMP       (RedisServer::KEY_PREFIX + robot_name + "::timestamp"),
+		KEY_KP_POSITION     (RedisServer::KEY_PREFIX + robot_name + "::tasks::kp_pos"),
+		KEY_KV_POSITION     (RedisServer::KEY_PREFIX + robot_name + "::tasks::kv_pos"),
+		KEY_KP_ORIENTATION  (RedisServer::KEY_PREFIX + robot_name + "::tasks::kp_ori"),
+		KEY_KV_ORIENTATION  (RedisServer::KEY_PREFIX + robot_name + "::tasks::kv_ori"),
+		KEY_KP_JOINT        (RedisServer::KEY_PREFIX + robot_name + "::tasks::kp_joint"),
+		KEY_KV_JOINT        (RedisServer::KEY_PREFIX + robot_name + "::tasks::kv_joint"),
 		command_torques_(dof),
 		Jv_(3, dof),
 		N_(dof, dof),
@@ -92,7 +92,6 @@ protected:
 	const int kRedisPort = 6379;
 
 	// Redis keys:
-	const std::string kRedisKeyPrefix = "cs225a::";
 	// - write:
 	const std::string KEY_COMMAND_TORQUES;
 	const std::string KEY_EE_POS;
