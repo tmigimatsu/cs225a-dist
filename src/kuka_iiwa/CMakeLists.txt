@@ -25,7 +25,7 @@ include_directories (${PROJECT_SOURCE_DIR}/..)
 
 #Set all the sources required for the library
 set (KUKA_DRIVER_SOURCE
-	RedisDriver.cpp
+	KukaIIWARedisDriver.cpp
 )
 
 #Set the executable to be built and its required linked libraries (the ones in the /usr/lib dir)

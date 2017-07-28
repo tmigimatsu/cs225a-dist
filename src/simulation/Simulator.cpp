@@ -7,13 +7,10 @@ static volatile bool g_runloop = true;
 void stop(int) { g_runloop = false; }
 
 void Simulator::run() {
-	// Create a loop timer
-	timer_.setLoopFrequency(kSimulationFreq);  // 1 kHz
-	timer_.setCtrlCHandler(stop);  // Exit while loop on ctrl-c
-
 	// Start Redis client
 	redis_.connect(kRedisHostname, kRedisPort);
 
+	// Initialize Redis keys
 	std::vector<std::string> keys_read;
 	std::vector<std::pair<std::string, std::string>> keyvals_write;
 	for (auto& r : robots_) {
@@ -30,6 +27,23 @@ void Simulator::run() {
 		keyvals_write.emplace_back(r.KEY_JOINT_VELOCITIES, "");
 		keyvals_write.emplace_back(r.KEY_TIMESTAMP, "");
 	}
+
+	// Check to make sure other applications aren't writing joint positions/velocities
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	for (auto& r : robots_) {
+		Eigen::MatrixXd q = redis_.getEigenMatrix(r.KEY_JOINT_POSITIONS);
+		Eigen::MatrixXd dq = redis_.getEigenMatrix(r.KEY_JOINT_VELOCITIES);
+		if ((q.array() != 0).any() || (dq.array() != 0).any()) {
+			throw std::runtime_error(
+				"Another application is writing to " + r.KEY_JOINT_POSITIONS +
+				" or " + r.KEY_JOINT_VELOCITIES + ". ABORTING."
+			);
+		}
+	}
+
+	// Create a loop timer
+	timer_.setLoopFrequency(kSimulationFreq);  // 1 kHz
+	timer_.setCtrlCHandler(stop);  // Exit while loop on ctrl-c
 
 	auto t_sensor_write = std::chrono::high_resolution_clock::now();
 	while (g_runloop) {

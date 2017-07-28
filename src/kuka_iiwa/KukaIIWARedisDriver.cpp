@@ -19,7 +19,7 @@
  * Author: Toki Migimatsu <takatoki@stanford.edu>
  */
 
-#include "RedisDriver.h"
+#include "KukaIIWARedisDriver.h"
 #include "ButterworthFilter.h"
 #include "redis/RedisClient.h"
 
@@ -31,6 +31,8 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <thread>
+#include <chrono>
 
 
 /**********************
@@ -87,7 +89,7 @@ int main (int argc, char** argv)
 	}
 
 	// Create new client and UDP connection
-	KUKA::FRI::RedisDriver client(redis_ip, redis_port, tool_filename);
+	KUKA::FRI::KukaIIWARedisDriver client(redis_ip, redis_port, tool_filename);
 	KUKA::FRI::UdpConnection connection;
 
 	// Connect client application to KUKA Sunrise controller.
@@ -142,11 +144,14 @@ static void printCommandMode(KUKA::FRI::EClientCommandMode command_mode) {
 	}
 }
 
-
 namespace KUKA {
 namespace FRI {
 
+<<<<<<< HEAD:src/kuka_iiwa/RedisDriver.cpp
 RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port, const char *tool_filename)
+=======
+KukaIIWARedisDriver::KukaIIWARedisDriver(const std::string& redis_ip, const int redis_port)
+>>>>>>> 3fc8b1d98aeca39047ba57fb41b37d6576a49e09:src/kuka_iiwa/KukaIIWARedisDriver.cpp
 #ifdef USE_KUKA_LBR_DYNAMICS
 	: dynamics_(kuka::Robot::LBRiiwa)
 #endif
@@ -169,10 +174,36 @@ RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port, cons
 		exit(1);
     }
 #endif
+
+	// Make sure simulator isn't running by checking for nonzero joint
+	// positions and velocities.
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_VELOCITIES, Eigen::VectorXd::Zero(DOF));
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	Eigen::VectorXd q = redis_.getEigenMatrix(KEY_JOINT_POSITIONS);
+	Eigen::VectorXd dq = redis_.getEigenMatrix(KEY_JOINT_VELOCITIES);
+	if ((q.array() != 0).any() || (dq.array() != 0).any()) {
+		std::cout << "ERROR : Another application is setting "
+			      << KEY_JOINT_POSITIONS << " or " << KEY_JOINT_VELOCITIES
+			      << " in Redis. Please quit before running this driver." << std::endl;
+		exit(1);
+	}
+
+	// Make sure controller isn't running by setting the joint position to home
+	// in Redis and checking for nonzero command torques.
+	redis_.setEigenMatrix(KEY_COMMAND_TORQUES, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, HOME_POSITION);
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	Eigen::VectorXd command_torques = redis_.getEigenMatrix(KEY_COMMAND_TORQUES);
+	if ((command_torques.array() != 0).any()) {
+		std::cout << "ERROR : Another application is setting " << KEY_COMMAND_TORQUES
+			      << ". Controllers must be run AFTER the driver has initialized." << std::endl;
+		exit(1);
+	}
 }
 
 
-void RedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ESessionState newState)
+void KukaIIWARedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ESessionState newState)
 {
 	LBRClient::onStateChange(oldState, newState);
 	// react on state change events
@@ -200,7 +231,7 @@ void RedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ES
 }
 
 
-void RedisDriver::waitForCommand()
+void KukaIIWARedisDriver::waitForCommand()
 {
 	// In waitForCommand(), the joint values have to be mirrored. Which is done,
 	// by calling the base method.
@@ -217,7 +248,7 @@ void RedisDriver::waitForCommand()
 }
 
 
-void RedisDriver::command()
+void KukaIIWARedisDriver::command()
 {
 	// In command(), the joint values have to be sent. Which is done by calling
 	// the base method.
@@ -308,9 +339,8 @@ void RedisDriver::command()
 		case KUKA::FRI::POSITION:
 			// Joint limits
 			if ((q_des_.array().abs() > JOINT_LIMITS).any()) {
-				std::cout << "WARNING : q_des ["
-				          << q_des_.transpose() << "] exceeds limits ["
-				          << JOINT_LIMITS.transpose() << "]." << std::endl;
+				std::cout << "WARNING : command positions [" << q_des_.transpose() << "]" << std::endl
+				          << "          exceed limits     [" << JOINT_LIMITS.transpose() << "]." << std::endl;
 				q_des_ = q_des_.array().min(JOINT_LIMITS).max(-JOINT_LIMITS).matrix();
 			}
 			break;
@@ -327,36 +357,32 @@ void RedisDriver::command()
 
 			// Torque saturation
 			if ((command_torques_.array().abs() > TORQUE_LIMITS).any()) {
-				std::cout << "WARNING : command torques ["
-				          << command_torques_.transpose() << "] exceeds limits ["
-				          << TORQUE_LIMITS.transpose() << "]." << std::endl;
+				std::cout << "WARNING : command torques [" << command_torques_.transpose() << "]" << std::endl
+				          << "          exceed limits   [" << TORQUE_LIMITS.transpose() << "]." << std::endl;
 				command_torques_ = command_torques_.array().min(TORQUE_LIMITS).max(-TORQUE_LIMITS).matrix();
 			}
 
 			// Jerk saturation
 			Eigen::ArrayXd jerk = (command_torques_ - command_torques_prev_).array();
 			if ((jerk.abs() > JERK_LIMITS).any()) {
-				std::cout << "WARNING : jerk ["
-				          << jerk.transpose() << "] exceeds limits ["
-				          << JERK_LIMITS.transpose() << "]." << std::endl;
+				std::cout << "WARNING : command jerk   [" << jerk.transpose() << "]" << std::endl
+				          << "          exceeds limits [" << JERK_LIMITS.transpose() << "]." << std::endl;
 				jerk = jerk.min(JERK_LIMITS).max(-JERK_LIMITS);
 				command_torques_ = command_torques_prev_ + jerk.matrix();
 			}
 
 			// Velocity limits
 			if ((dq_.array().abs() > VELOCITY_LIMITS).any()) {
-				std::cout << "ERROR : dq ["
-				          << dq_.transpose() << "] exceeds limits ["
-				          << VELOCITY_LIMITS.transpose() << "]." << std::endl
+				std::cout << "ERROR : joint velocities [" << dq_.transpose() << "]" << std::endl
+				          << "        exceed limits    [" << VELOCITY_LIMITS.transpose() << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
 
 			// Joint limits
 			if ((q_.array().abs() > JOINT_LIMITS).any()) {
-				std::cout << "ERROR : q ["
-				          << q_.transpose() << "] exceeds limits ["
-				          << JOINT_LIMITS.transpose() << "]." << std::endl
+				std::cout << "ERROR : joint positions [" << q_.transpose() << "]" << std::endl
+				          << "        exceed limits   [" << JOINT_LIMITS.transpose() << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
@@ -365,15 +391,13 @@ void RedisDriver::command()
 			// Wrist height limits
 			Eigen::Vector3d pos_wrist = CalcBodyToBaseCoordinates(rbdl_model_, q_, 6, Eigen::Vector3d::Zero(), true);
 			if (pos_wrist(2) <= POS_WRIST_LIMITS[0]) {
-				std::cout << "ERROR : wrist height ["
-				          << pos_wrist(2) << "] exceeds lower limit ["
-				          << POS_WRIST_LIMITS[0] << "]." << std::endl
+				std::cout << "ERROR : wrist height        [" << pos_wrist(2) << "]" << std::endl
+				          << "        exceeds lower limit [" << POS_WRIST_LIMITS[0] << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			} else if (pos_wrist(2) >= POS_WRIST_LIMITS[1]) {
-				std::cout << "ERROR : wrist height ["
-				          << pos_wrist(2) << "] exceeds upper limit ["
-				          << POS_WRIST_LIMITS[1] << "]." << std::endl
+				std::cout << "ERROR : wrist height        [" << pos_wrist(2) << "]" << std::endl
+				          << "        exceeds upper limit [" << POS_WRIST_LIMITS[1] << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
@@ -423,7 +447,7 @@ void RedisDriver::command()
 
 #ifdef USE_KUKA_LBR_DYNAMICS
 
-void RedisDriver::parseTool(const char *tool_filename)
+void KukaIIWARedisDriver::parseTool(const char *tool_filename)
 {
 	tinyxml2::XMLDocument doc;
 	doc.LoadFile(tool_filename);
@@ -458,9 +482,7 @@ void RedisDriver::parseTool(const char *tool_filename)
 		doc.PrintError();
 	}
 }
-
 #endif  // USE_KUKA_LBR_DYNAMICS
 
-
-} //namespace FRI
-} //namespace KUKA
+}  // namespace KUKA
+}  // namespace FRI
