@@ -24,6 +24,7 @@ Author: Toki Migimatsu <takatoki@stanford.edu>
 #ifndef KUKA_IIWA_REDIS_DRIVER_H
 #define KUKA_IIWA_REDIS_DRIVER_H
 
+#include "KukaIIWA.h"
 #include "friLBRClient.h"
 #include "ButterworthFilter.h"
 #include "redis/RedisClient.h"
@@ -33,7 +34,7 @@ Author: Toki Migimatsu <takatoki@stanford.edu>
 #include <Eigen/Core>
 
 #ifdef USE_KUKA_LBR_DYNAMICS
-	#include <KukaLBRDynamics/Robot.h>
+	#include "KukaLBRDynamics/Robot.h"
 	#include <rbdl/Model.h>
 	#ifndef RBDL_BUILD_ADDON_URDFREADER
 		#error "Error: RBDL addon urdfmodel not enabled."
@@ -41,72 +42,20 @@ Author: Toki Migimatsu <takatoki@stanford.edu>
 	#include <rbdl/addons/urdfreader/urdfreader.h>
 #endif  // USE_KUKA_LBR_DYNAMICS
 
-namespace KukaIIWA {
-
-/********************
- * Public Constants *
- ********************/
-
-// Default Kuka IIWA port
-const int DEFAULT_PORT = 30200;
-
-// Kuka degrees of freedom
-const int DOF = KUKA::FRI::LBRState::NUMBER_OF_JOINTS;
-
-// Path to the urdf model and tool file
-const char MODEL_FILENAME[] = "resources/kuka_iiwa_driver/kuka_iiwa.urdf";
-const char TOOL_FILENAME[]  = "resources/kuka_iiwa_driver/tool.xml";
-
-const std::string KEY_PREFIX = "cs225a::kuka_iiwa::";
-// Redis keys sent to robot
-const std::string KEY_COMMAND_TORQUES         = KEY_PREFIX + "actuators::fgc";
-const std::string KEY_DESIRED_JOINT_POSITIONS = KEY_PREFIX + "actuators::q_des";
-
-// Redis keys returned by robot
-const std::string KEY_SENSOR_TORQUES   = KEY_PREFIX + "sensors::torques";
-const std::string KEY_JOINT_POSITIONS  = KEY_PREFIX + "sensors::q";
-const std::string KEY_JOINT_VELOCITIES = KEY_PREFIX + "sensors::dq";
-
-// Safety limits (for initialization purposes only - use Eigen mappings instead)
-// TODO: Find real velocity and jerk limits
-const double _ARR_JOINT_LIMITS[KukaIIWA::DOF]    = {2.9670, 2.0944, 2.9670, 2.0944, 2.9670, 2.0944, 3.0543};
-
-const double _ARR_VELOCITY_LIMITS[KukaIIWA::DOF] = {90.0, 90.0, 95.0, 125.0, 135.0, 170.0, 170.0};
-// const double ARR_VELOCITY_LIMITS[KukaIIWA::DOF] = {98.0, 98.0, 100.0, 130.0, 140.0, 180.0, 180.0}; // for LBR IIWA 7kg from specs
-
-const double _ARR_TORQUE_LIMITS[KukaIIWA::DOF]   = {176.0, 176.0, 110.0, 110.0, 110.0, 40.0, 40.0}; // LBR iiwa 7 R800
-// const double _ARR_TORQUE_LIMITS[KukaIIWA::DOF]   = {320.0, 320.0, 176.0, 176.0, 110.0, 40.0, 40.0}; // LBR iiwa 14 R820
-
-const double _ARR_JERK_LIMITS[KukaIIWA::DOF]     = {8.8, 8.8, 5.5, 5.5, 5.5, 2.0, 2.0};
-
-// Eigen mappings to safety limits
-const Eigen::ArrayXd JOINT_LIMITS    = Eigen::Array<double,DOF,1>(_ARR_JOINT_LIMITS) - 10.0 * M_PI/180.0;
-const Eigen::ArrayXd TORQUE_LIMITS   = Eigen::Array<double,DOF,1>(_ARR_TORQUE_LIMITS);
-const Eigen::ArrayXd VELOCITY_LIMITS = Eigen::Array<double,DOF,1>(_ARR_VELOCITY_LIMITS) * M_PI/180.0;
-const Eigen::ArrayXd JERK_LIMITS     = Eigen::Array<double,DOF,1>(_ARR_JERK_LIMITS);
-
-// Height limits for the wrist [low high]
-const double _POS_WRIST_LIMITS[2] = {0.45, 1.05};
-
-}
-
 namespace KUKA {
 namespace FRI {
-
-/********************************
- * RedisDriver Class Definition *
- ********************************/
 
 /**
  * \brief Client for Kuka LBR IIWA that reads and writes to shared memory.
  */
-class RedisDriver : public KUKA::FRI::LBRClient
+class KukaIIWARedisDriver : public KUKA::FRI::LBRClient
 {
 
 public:
 
-	RedisDriver(const std::string& redis_ip=RedisServer::DEFAULT_IP,
-	            const int redis_port=RedisServer::DEFAULT_PORT);
+	KukaIIWARedisDriver(const std::string& redis_ip=RedisServer::DEFAULT_IP,
+	                    const int redis_port=RedisServer::DEFAULT_PORT,
+	                    const char *tool_filename=KukaIIWA::TOOL_FILENAME);
 
 	/**
 	 * \brief Callback that is called whenever the FRI session state changes.
@@ -131,11 +80,19 @@ protected:
 	/***** Constants *****/
 
 	// Kv for damped exit
-	const double arr_kExitKv[KukaIIWA::DOF] = {8, 8, 5, 5, 5, 2, 2};
-	const Eigen::ArrayXd kExitKv = Eigen::Array<double,7,1>(arr_kExitKv);
+	const Eigen::ArrayXd kExitKv = KukaIIWA::VectorXd(8, 8, 5, 5, 5, 2, 2);
 
 	// Cutoff frequency for velocity filter, in the range of (0, 0.5) of sampling frequency
 	const double kCutoffFreq = 0.1;
+
+	// Torque offsets
+	const Eigen::VectorXd kTorqueOffset = KukaIIWA::VectorXd(-0.5, 1.0, 0.0, -0.7, 0.0, 0.12, 0.0);
+
+#ifdef USE_KUKA_LBR_DYNAMICS
+	// Constant end effector properties (without tool.xml)
+	const double kMassEE = 0.2;
+	const Eigen::Vector3d kCenterOfMassEE = Eigen::Vector3d(0, 0, -0.081);
+#endif  // USE_KUKA_LBR_DYNAMICS
 
 	/***** State Variables *****/
 
@@ -169,7 +126,7 @@ protected:
 	Eigen::VectorXd q_prev_ = Eigen::VectorXd::Zero(KukaIIWA::DOF);
 
 	// Previous command torques
-	Eigen::VectorXd command_torques_prev_;
+	Eigen::VectorXd command_torques_prev_ = Eigen::VectorXd::Zero(KukaIIWA::DOF);
 
 	/***** Misc Member Variables *****/
 
@@ -200,7 +157,7 @@ protected:
 	/**
  	 * \brief Parse tool.xml file.
 	 */
-	void parseTool();
+	void parseTool(const char *tool_filename);
 
 	// Kuka dynamics
 	kuka::Robot dynamics_;
@@ -215,7 +172,7 @@ protected:
 
 };
 
-} //namespace FRI
-} //namespace KUKA
+}  // namespace KUKA
+}  // namespace FRI
 
 #endif  // KUKA_IIWA_REDIS_DRIVER_H

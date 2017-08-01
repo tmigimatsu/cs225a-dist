@@ -1,9 +1,9 @@
-// This example application runs a controller for the IIWA
+// This example application runs a controller for the Sawyer
 
 #include "model/ModelInterface.h"
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
-#include "kuka_iiwa/KukaIIWA.h"
+#include "sawyer/RedisDriver.h"
 
 #include <iostream>
 #include <string>
@@ -12,20 +12,12 @@
 static volatile bool g_runloop = true;
 void stop(int signal){ g_runloop = false; }
 
-static void setCtrlCHandler(void (*userCallback)(int)) {
-	struct sigaction sigIntHandler;
-	sigIntHandler.sa_handler = userCallback;
-	sigemptyset(&sigIntHandler.sa_mask);
-	sigIntHandler.sa_flags = 0;
-	sigaction(SIGINT, &sigIntHandler, NULL);
-}
+const std::string kWorldFile = "resources/sawyer_hold_pos/world.urdf";
+const std::string kRobotFile = "resources/sawyer_hold_pos/sawyer.urdf";
+const std::string kRobotName = "sawyer";
 
-const std::string kWorldFile = "resources/kuka_hold_pos/world.urdf";
-const std::string kRobotFile = "resources/kuka_hold_pos/kuka_iiwa.urdf";
-const std::string kRobotName = "Kuka-IIWA";
-
-const double arr_kp_joint[KukaIIWA::DOF] = {100, 100, 60, 60, 10, 8, 5};
-const double arr_kv_joint[KukaIIWA::DOF] = {20, 20, 10, 10, 5, 3, 1};
+const int kp_joint = 30;
+const int kv_joint = 20;
 
 unsigned long long controller_counter = 0;
 
@@ -37,26 +29,23 @@ int main() {
 	redis.connect();
 
 	// Set up signal handler
-	setCtrlCHandler(stop);
+	signal(SIGABRT, &stop);
+	signal(SIGTERM, &stop);
+	signal(SIGINT, &stop);
 
 	// Load robot
 	auto robot = new Model::ModelInterface(kRobotFile, Model::rbdl, Model::urdf, true);
 
 	// Read from Redis
-	robot->_q = redis.getEigenMatrix(KukaIIWA::KEY_JOINT_POSITIONS);
-	robot->_dq = redis.getEigenMatrix(KukaIIWA::KEY_JOINT_VELOCITIES);
+	robot->_q = redis.getEigenMatrix(Sawyer::KEY_JOINT_POSITIONS);
+	robot->_dq = redis.getEigenMatrix(Sawyer::KEY_JOINT_VELOCITIES);
 
 	// Update the model
 	robot->updateModel();
 
 	// Initialize controller variables
-	Eigen::VectorXd command_torques = Eigen::VectorXd::Zero(KukaIIWA::DOF);
+	Eigen::VectorXd command_torques = Eigen::VectorXd::Zero(Sawyer::DOF);
 	Eigen::VectorXd q_initial = robot->_q;
-
-	Eigen::DiagonalMatrix<double, KukaIIWA::DOF> kp_joint;
-	kp_joint.diagonal() << 100, 100, 60, 60, 10, 8, 5;
-	Eigen::DiagonalMatrix<double, KukaIIWA::DOF> kv_joint;
-	kv_joint.diagonal() << 20, 20, 10, 10, 5, 3, 1;
 
 	// Create a loop timer
 	LoopTimer timer;
@@ -70,24 +59,24 @@ int main() {
 		timer.waitForNextLoop();
 
 		// Read from Redis
-		robot->_q = redis.getEigenMatrix(KukaIIWA::KEY_JOINT_POSITIONS);
-		robot->_dq = redis.getEigenMatrix(KukaIIWA::KEY_JOINT_VELOCITIES);
+		robot->_q = redis.getEigenMatrix(Sawyer::KEY_JOINT_POSITIONS);
+		robot->_dq = redis.getEigenMatrix(Sawyer::KEY_JOINT_VELOCITIES);
 
 		// Update the model
 		robot->updateModel();
 
 		// Joint control
-		command_torques = kp_joint * (q_initial - robot->_q) - kv_joint * robot->_dq;
+		command_torques = -kp_joint * (robot->_q - q_initial) - kv_joint * robot->_dq;
 
 		// Send torques to robot
-		redis.setEigenMatrix(KukaIIWA::KEY_COMMAND_TORQUES, command_torques);
+		redis.setEigenMatrix(Sawyer::KEY_COMMAND_TORQUES, command_torques);
 
 		controller_counter++;
 	}
 
 	// Clear torques
     command_torques.setZero();
-    redis.setEigenMatrix(KukaIIWA::KEY_COMMAND_TORQUES, command_torques);
+    redis.setEigenMatrix(Sawyer::KEY_COMMAND_TORQUES, command_torques);
 
     double end_time = timer.elapsedTime();
     std::cout << "\n";

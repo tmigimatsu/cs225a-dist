@@ -8,6 +8,7 @@ set (CMAKE_VERBOSE_MAKEFILE ON)
 
 cmake_minimum_required(VERSION 3.1)
 
+option(USE_KUKA_LBR_DYNAMICS "USE_KUKA_LBR_DYNAMICS" ON)
 
 ################Initialize the executable#################
 
@@ -23,14 +24,13 @@ include_directories (${PROJECT_SOURCE_DIR}/..)
 
 #Set all the sources required for the library
 set (KUKA_DRIVER_SOURCE
-	RedisDriver.cpp
+	KukaIIWARedisDriver.cpp
 )
 
 #Set the executable to be built and its required linked libraries (the ones in the /usr/lib dir)
 add_executable (${PROJECT_NAME} ${CS225A_COMMON_SOURCE} ${KUKA_DRIVER_SOURCE})
 
 # KUKA IIWA FRI SDK
-message(${CMAKE_CURRENT_SOURCE_DIR})
 set(FRI_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/FRI-Client-SDK)
 set(FRI_INCLUDE_DIR ${FRI_BASE_DIR}/include)
 find_library(FRI_LIBRARIES FRIClient PATHS ${FRI_BASE_DIR}/lib)
@@ -40,7 +40,7 @@ find_library(FRI_LIBRARIES FRIClient PATHS ${FRI_BASE_DIR}/lib)
 # KUKA LBR Dynamics
 if (USE_KUKA_LBR_DYNAMICS)
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/KukaLBRDynamics)
-    option(USE_KUKA_RBDL    "USE_KUKA_RBDL"     OFF)
+    option(USE_KUKA_RBDL "USE_KUKA_RBDL" OFF)
     find_package (KukaLBRDynamics REQUIRED)
     include_directories(${KukaLBRDynamics_INCLUDE_DIRS})
     target_link_libraries(${PROJECT_NAME} ${KukaLBRDynamics_LIBRARIES})

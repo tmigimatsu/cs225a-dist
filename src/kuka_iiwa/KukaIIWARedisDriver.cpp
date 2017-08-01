@@ -19,18 +19,18 @@
  * Author: Toki Migimatsu <takatoki@stanford.edu>
  */
 
-#include "RedisDriver.h"
+#include "KukaIIWARedisDriver.h"
 #include "ButterworthFilter.h"
-#include "redis/RedisClient.h"
 
-#include <friLBRClient.h>
-#include <friUdpConnection.h>
-#include <friClientApplication.h>
+#include "friUdpConnection.h"
+#include "friClientApplication.h"
 #include <tinyxml2.h>
 
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <thread>
+#include <chrono>
 
 
 /**********************
@@ -43,6 +43,7 @@ int main (int argc, char** argv)
 	if (argc < 3) {
 		std::cout << "Usage: kuka_iiwa_driver [-s KUKA_IIWA_IP] [-p KUKA_IIWA_PORT]" << std::endl
 		          << "                        [-rs REDIS_SERVER_IP] [-rp REDIS_SERVER_PORT]" << std::endl
+		          << "                        [-t TOOL_XML]" << std::endl
 		          << std::endl
 		          << "This driver provides a Redis interface for communication with the Kuka IIWA." << std::endl
 		          << std::endl
@@ -55,6 +56,8 @@ int main (int argc, char** argv)
 		          << "\t\t\t\tRedis server IP (default " << RedisServer::DEFAULT_IP << ")." << std::endl
 		          << "  -rp REDIS_SERVER_PORT" << std::endl
 		          << "\t\t\t\tRedis server port (default " << RedisServer::DEFAULT_PORT << ")." << std::endl
+		          << "  -t TOOL_XML" << std::endl
+		          << "\t\t\t\tKuka end-effector specification file (default " << KukaIIWA::TOOL_FILENAME << ")." << std::endl
 		          << std::endl;
 	}
 
@@ -63,6 +66,7 @@ int main (int argc, char** argv)
 	int kuka_iiwa_port = KukaIIWA::DEFAULT_PORT;
 	std::string redis_ip = RedisServer::DEFAULT_IP;
 	int redis_port = RedisServer::DEFAULT_PORT;
+	const char *tool_filename = KukaIIWA::TOOL_FILENAME;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "-s")) {
 			// Kuka IIWA server IP
@@ -76,11 +80,14 @@ int main (int argc, char** argv)
 		} else if (!strcmp(argv[i], "-rp")) {
 			// Redis server port
 			sscanf(argv[++i], "%d", &redis_port);
+		} else if (!strcmp(argv[i], "-t")) {
+			// Tool XML
+			tool_filename = argv[++i];
 		}
 	}
 
 	// Create new client and UDP connection
-	KUKA::FRI::RedisDriver client(redis_ip, redis_port);
+	KUKA::FRI::KukaIIWARedisDriver client(redis_ip, redis_port, tool_filename);
 	KUKA::FRI::UdpConnection connection;
 
 	// Connect client application to KUKA Sunrise controller.
@@ -135,11 +142,10 @@ static void printCommandMode(KUKA::FRI::EClientCommandMode command_mode) {
 	}
 }
 
-
 namespace KUKA {
 namespace FRI {
 
-RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
+KukaIIWARedisDriver::KukaIIWARedisDriver(const std::string& redis_ip, const int redis_port, const char *tool_filename)
 #ifdef USE_KUKA_LBR_DYNAMICS
 	: dynamics_(kuka::Robot::LBRiiwa)
 #endif
@@ -153,19 +159,49 @@ RedisDriver::RedisDriver(const std::string& redis_ip, const int redis_port)
 
 #ifdef USE_KUKA_LBR_DYNAMICS
 	// Parse tool from tool.xml
-	parseTool();
+	parseTool(tool_filename);
 
 	// Parse rbdl model from urdf
-    bool success = RigidBodyDynamics::Addons::URDFReadFromFile(kModelFilename, &rbdl_model_, false, false);
+    bool success = RigidBodyDynamics::Addons::URDFReadFromFile(MODEL_FILENAME, &rbdl_model_, false, false);
     if (!success) {
-		std::cout << "Error loading model [" << kModelFilename << "]" << std::endl;
+		std::cout << "Error loading model [" << MODEL_FILENAME << "]" << std::endl;
 		exit(1);
     }
 #endif
+
+	// Make sure simulator isn't running by checking for nonzero joint
+	// positions and velocities.
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_VELOCITIES, Eigen::VectorXd::Zero(DOF));
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	Eigen::VectorXd q = redis_.getEigenMatrix(KEY_JOINT_POSITIONS);
+	Eigen::VectorXd dq = redis_.getEigenMatrix(KEY_JOINT_VELOCITIES);
+	if ((q.array() != 0).any() || (dq.array() != 0).any()) {
+		std::cout << "ERROR : Another application is setting "
+			      << KEY_JOINT_POSITIONS << " or " << KEY_JOINT_VELOCITIES
+			      << " in Redis. Please quit before running this driver." << std::endl;
+		exit(1);
+	}
+
+	// Make sure controller isn't running by setting the joint position to home
+	// in Redis and checking for nonzero command torques.
+	redis_.setEigenMatrix(KEY_COMMAND_TORQUES, Eigen::VectorXd::Zero(DOF));
+	redis_.setEigenMatrix(KEY_JOINT_POSITIONS, HOME_POSITION);
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	Eigen::VectorXd command_torques = redis_.getEigenMatrix(KEY_COMMAND_TORQUES);
+	if ((command_torques.array() != 0).any()) {
+		std::cout << "ERROR : Another application is setting " << KEY_COMMAND_TORQUES
+			      << ". Controllers must be run AFTER the driver has initialized." << std::endl;
+		exit(1);
+	}
+
+	// Initialize tool parameters from tool.xml
+	redis_.set(KukaIIWA::KEY_TOOL_MASS, std::to_string(tool_mass_));
+	redis_.setEigenMatrix(KukaIIWA::KEY_TOOL_COM, tool_com_);
 }
 
 
-void RedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ESessionState newState)
+void KukaIIWARedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ESessionState newState)
 {
 	LBRClient::onStateChange(oldState, newState);
 	// react on state change events
@@ -193,7 +229,7 @@ void RedisDriver::onStateChange(KUKA::FRI::ESessionState oldState, KUKA::FRI::ES
 }
 
 
-void RedisDriver::waitForCommand()
+void KukaIIWARedisDriver::waitForCommand()
 {
 	// In waitForCommand(), the joint values have to be mirrored. Which is done,
 	// by calling the base method.
@@ -210,58 +246,64 @@ void RedisDriver::waitForCommand()
 }
 
 
-void RedisDriver::command()
+void KukaIIWARedisDriver::command()
 {
-	// In command(), the joint values have to be sent. Which is done by calling
-	// the base method.
+	// Send joint values in the base command
 	LBRClient::command();
 
-	// check for control mode change
+	// Check for control mode change
 	KUKA::FRI::EClientCommandMode fri_command_mode_next = robotState().getClientCommandMode();
 	if (fri_command_mode_next != fri_command_mode_) {
 		fri_command_mode_ = fri_command_mode_next;
 		printCommandMode(fri_command_mode_);
 	}
 
-	// get the position and measure torque
+	// Get the position and measured torque
 	memcpy(arr_q_, robotState().getMeasuredJointPosition(), DOF * sizeof(double));
 	memcpy(arr_sensor_torques_, robotState().getMeasuredTorque(), DOF * sizeof(double));
 
-	// get the time
+	// Get the time
 	timespec time;
 	time.tv_sec = robotState().getTimestampSec();
 	time.tv_nsec = robotState().getTimestampNanoSec();
 
-	// get the velocity
+	// Get the velocity
 	if (t_prev_.tv_sec == 0 && t_prev_.tv_nsec == 0) {
-		// if not initialized, set to zero
+		// If not initialized, set to zero
 		dq_.setZero();
 		dq_filtered_.setZero();
 	} else {
-		// velocity = (position - last position)/(time - last time)
+		// Velocity = (position - last position)/(time - last time)
 		double dt = elapsedTime(t_prev_, time);
 		dq_ = (q_ - q_prev_) / dt;
 		dq_filtered_ = velocity_filter_.update(dq_);
 	}
 
-	// Send positions, velocities and sensed torques
+	// Send positions, velocities and sensed torques to Redis
 	redis_.pipeset({
 		{KEY_JOINT_POSITIONS,  RedisClient::encodeEigenMatrix(q_)},
 		{KEY_JOINT_VELOCITIES, RedisClient::encodeEigenMatrix(dq_filtered_)},
 		{KEY_SENSOR_TORQUES,   RedisClient::encodeEigenMatrix(sensor_torques_)}
 	});
 
-	// Get commanded torques or joint positions
+	// Read values from Redis
 	try {
+		// Get commanded torques or joint positions
 		if (fri_command_mode_ == KUKA::FRI::TORQUE) {
 			command_torques_ = redis_.getEigenMatrix(KEY_COMMAND_TORQUES);
 		} else if (fri_command_mode_ == KUKA::FRI::POSITION) {
 			q_des_ = redis_.getEigenMatrix(KEY_DESIRED_JOINT_POSITIONS);
 		}
+
+		// Get tool parameters
+		auto tool_vals = redis_.pipeget({KukaIIWA::KEY_TOOL_MASS, KukaIIWA::KEY_TOOL_COM});
+		tool_mass_ = std::stod(tool_vals[0]);
+		tool_com_  = RedisClient::decodeEigenMatrix(tool_vals[1]);
 	} catch (std::exception& e) {
 		std::cout << e.what() << std::endl
-		          << "Going to fail mode." << std::endl;
-		exit_program_ = true;
+		          << "Setting command torques and joint positions to 0." << std::endl;
+		command_torques_.setZero();
+		q_des_.setZero();
 	}
 
 	if (exit_program_) {
@@ -270,38 +312,46 @@ void RedisDriver::command()
 		exit_counter_--;
 	}
 
-	// ADD GRAVITY COMPENSATION FOR TOOL
+	// Add gravity compensation for tool
 #ifdef USE_KUKA_LBR_DYNAMICS
 	if (fri_command_mode_ == KUKA::FRI::TORQUE) {
+		// Find ee Jacobian
+		Eigen::MatrixXd J0 = Eigen::MatrixXd::Zero(6, DOF);
+		Eigen::VectorXd q_temp = q_;
+		dynamics_.getJacobian(J0, q_temp, kCenterOfMassEE, DOF);
+		Eigen::MatrixXd J_ee = J0.block(0,0,3,DOF);
+
+		// Find ee weight
+		Eigen::Vector3d F_grav_ee = Eigen::Vector3d(0, 0, -9.81 * kMassEE);
+
 		// Find tool Jacobian
-		Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, DOF);
-		dynamics_.getJacobian(J, q_, tool_com_, DOF);
+		q_temp = q_;
+		dynamics_.getJacobian(J0, q_temp, tool_com_, DOF);
+		Eigen::MatrixXd J_tool = J0.block(0,0,3,DOF);
 
 		// Find tool weight
-		Eigen::VectorXd F_grav_tool = Eigen::MatrixXd::Zero(6);
-		F_grav_tool(2) = -9.81 * tool_mass_;
+		Eigen::Vector3d F_grav_tool = Eigen::Vector3d(0, 0, -9.81 * tool_mass_);
 
-		// Compensate for tool weight
-		command_torques_ -= J.transpose() * F_grav_tool;
+		// Compensate for ee + tool weight
+		command_torques_ -= J_ee.transpose() * F_grav_ee + J_tool.transpose() * F_grav_tool;
 	}
 #endif
 
-	// COMPENSATE FOR THE OFFSET IN THE FIRST JOINT
+	// Compensate for torque offsets
 	if (fri_command_mode_ == KUKA::FRI::TORQUE) {
-		command_torques_(0) -= 0.3;
+		command_torques_ += kTorqueOffset;
 	}
 
-	// CHECK COMMAND
+	// Check command
 	switch (fri_command_mode_) {
 		case KUKA::FRI::NO_COMMAND_MODE:
 			break;
 
 		case KUKA::FRI::POSITION:
 			// Joint limits
-			if ((q_des_.array().abs() < JOINT_LIMITS).any()) {
-				std::cout << "WARNING : q_des ["
-				          << q_des_.transpose() << "] exceeds limits ["
-				          << JOINT_LIMITS.transpose() << "]." << std::endl;
+			if ((q_des_.array().abs() > JOINT_LIMITS).any()) {
+				std::cout << "WARNING : command positions [" << q_des_.transpose() << "]" << std::endl
+				          << "          exceed limits     [" << JOINT_LIMITS.transpose() << "]." << std::endl;
 				q_des_ = q_des_.array().min(JOINT_LIMITS).max(-JOINT_LIMITS).matrix();
 			}
 			break;
@@ -317,37 +367,33 @@ void RedisDriver::command()
 			// ********************************************************************
 
 			// Torque saturation
-			if ((command_torques_.array().abs() < TORQUE_LIMITS).any()) {
-				std::cout << "WARNING : command torques ["
-				          << command_torques_.transpose() << "] exceeds limits ["
-				          << TORQUE_LIMITS.transpose() << "]." << std::endl;
+			if ((command_torques_.array().abs() > TORQUE_LIMITS).any()) {
+				std::cout << "WARNING : command torques [" << command_torques_.transpose() << "]" << std::endl
+				          << "          exceed limits   [" << TORQUE_LIMITS.transpose() << "]." << std::endl;
 				command_torques_ = command_torques_.array().min(TORQUE_LIMITS).max(-TORQUE_LIMITS).matrix();
 			}
 
 			// Jerk saturation
-			Eigen::MatrixXd jerk = command_torques_ - command_torques_prev_;
-			if ((jerk.array().abs() > JERK_LIMITS).any()) {
-				std::cout << "WARNING : jerk ["
-				          << jerk.transpose() << "] exceeds limits ["
-				          << JERK_LIMITS.transpose() << "]." << std::endl;
-				jerk = jerk.array().min(JERK_LIMITS).max(-JERK_LIMITS).matrix();
-				command_torques_ = command_torques_prev_ + jerk;
+			Eigen::ArrayXd jerk = (command_torques_ - command_torques_prev_).array();
+			if ((jerk.abs() > JERK_LIMITS).any()) {
+				std::cout << "WARNING : command jerk   [" << jerk.transpose() << "]" << std::endl
+				          << "          exceeds limits [" << JERK_LIMITS.transpose() << "]." << std::endl;
+				jerk = jerk.min(JERK_LIMITS).max(-JERK_LIMITS);
+				command_torques_ = command_torques_prev_ + jerk.matrix();
 			}
 
 			// Velocity limits
-			if ((dq_.array().abs() < VELOCITY_LIMITS).any()) {
-				std::cout << "ERROR : dq ["
-				          << dq_.transpose() << "] exceeds limits ["
-				          << VELOCITY_LIMITS.transpose() << "]." << std::endl
+			if ((dq_.array().abs() > VELOCITY_LIMITS).any()) {
+				std::cout << "ERROR : joint velocities [" << dq_.transpose() << "]" << std::endl
+				          << "        exceed limits    [" << VELOCITY_LIMITS.transpose() << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
 
 			// Joint limits
-			if ((q_.array().abs() < JOINT_LIMITS).any()) {
-				std::cout << "ERROR : q ["
-				          << q_.transpose() << "] exceeds limits ["
-				          << JOINT_LIMITS.transpose() << "]." << std::endl
+			if ((q_.array().abs() > JOINT_LIMITS).any()) {
+				std::cout << "ERROR : joint positions [" << q_.transpose() << "]" << std::endl
+				          << "        exceed limits   [" << JOINT_LIMITS.transpose() << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
@@ -356,15 +402,13 @@ void RedisDriver::command()
 			// Wrist height limits
 			Eigen::Vector3d pos_wrist = CalcBodyToBaseCoordinates(rbdl_model_, q_, 6, Eigen::Vector3d::Zero(), true);
 			if (pos_wrist(2) <= POS_WRIST_LIMITS[0]) {
-				std::cout << "ERROR : wrist height ["
-				          << pos_wrist(2) << "] exceeds lower limit ["
-				          << POS_WRIST_LIMITS[0] << "]." << std::endl
+				std::cout << "ERROR : wrist height        [" << pos_wrist(2) << "]" << std::endl
+				          << "        exceeds lower limit [" << POS_WRIST_LIMITS[0] << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			} else if (pos_wrist(2) >= POS_WRIST_LIMITS[1]) {
-				std::cout << "ERROR : wrist height ["
-				          << pos_wrist(2) << "] exceeds upper limit ["
-				          << POS_WRIST_LIMITS[1] << "]." << std::endl
+				std::cout << "ERROR : wrist height        [" << pos_wrist(2) << "]" << std::endl
+				          << "        exceeds upper limit [" << POS_WRIST_LIMITS[1] << "]." << std::endl
 				          << "Going to fail mode." << std::endl;
 				exit_program_ = true;
 			}
@@ -372,7 +416,7 @@ void RedisDriver::command()
 			break;
 	}
 
-	// SEND COMMAND
+	// Send command
 	switch (fri_command_mode_) {
 		case KUKA::FRI::NO_COMMAND_MODE:
 			break;
@@ -413,13 +457,12 @@ void RedisDriver::command()
 
 
 #ifdef USE_KUKA_LBR_DYNAMICS
-
-void RedisDriver::parseTool()
+void KukaIIWARedisDriver::parseTool(const char *tool_filename)
 {
 	tinyxml2::XMLDocument doc;
-	doc.LoadFile(kToolFilename);
+	doc.LoadFile(tool_filename);
 	if (!doc.Error()) {
-		printMessage("Loading tool file ["+std::string(kToolFilename)+"].");
+		printMessage("Loading tool file ["+std::string(tool_filename)+"].");
 		try {
 			std::string mass = doc.
 				FirstChildElement("tool")->
@@ -445,13 +488,11 @@ void RedisDriver::parseTool()
 			printMessage("WARNING : Failed to parse tool file.");
 		}
 	} else {
-		printMessage("WARNING : Could not load tool file ["+std::string(kToolFilename)+"]");
+		printMessage("WARNING : Could not load tool file ["+std::string(tool_filename)+"]");
 		doc.PrintError();
 	}
 }
-
 #endif  // USE_KUKA_LBR_DYNAMICS
 
-
-} //namespace FRI
-} //namespace KUKA
+}  // namespace KUKA
+}  // namespace FRI

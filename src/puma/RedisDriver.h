@@ -37,7 +37,7 @@ const int DOF = 6;
 //     [pos_x pos_y pos_z quat_w quat_x quat_y quat_z]
 const int SIZE_OP_SPACE_TASK = 7;
 
-const std::string KEY_PREFIX = "cs225a::puma::";
+const std::string KEY_PREFIX = RedisServer::KEY_PREFIX + "puma::";
 // Redis keys sent to robot
 const std::string KEY_CONTROL_MODE = KEY_PREFIX + "tasks::control_mode";
 const std::string KEY_COMMAND_DATA = KEY_PREFIX + "tasks::command_data";

@@ -26,8 +26,7 @@ static string robot_name = "";
 static const string CAMERA_NAME = "camera_fixed";
 
 // redis keys: 
-// NOTE: keys are formatted to be: REDIS_KEY_PREFIX::<robot-name>::<KEY>
-static const string REDIS_KEY_PREFIX = "cs225a::";
+// NOTE: keys are formatted to be: cs225a::<robot-name>::<KEY>
 // - write:
 static string JOINT_INTERACTION_TORQUES_COMMANDED_KEY = "::actuators::fgc_interact";
 // - read:
@@ -195,8 +194,14 @@ int main(int argc, char** argv) {
 	Eigen::Vector3d x, x_des;            // Current end effector pos
 	Eigen::Vector3d x_prev, x_des_prev;  // Previous end effector pos
 	int idx_traj = 0, idx_des_traj = 0;  // Current idx in trajectory buffer
-	x = redis_client.getEigenMatrix(EE_POSITION_KEY);
-	x_des = redis_client.getEigenMatrix(EE_POSITION_DESIRED_KEY);
+	try {
+		x = redis_client.getEigenMatrix(EE_POSITION_KEY);
+		x_des = redis_client.getEigenMatrix(EE_POSITION_DESIRED_KEY);
+	} catch (std::exception& e) {
+		std::cout << e.what() << std::endl;
+		x.setZero();
+		x_des.setZero();
+	}
 	x_prev = x;
 	x_des_prev = x_des;
 
@@ -222,9 +227,11 @@ int main(int argc, char** argv) {
 
 #ifdef ENABLE_TRAJECTORIES
 		/********** Begin Custom Visualizer Code **********/
-
-		x = redis_client.getEigenMatrix(EE_POSITION_KEY);
-		x_des = redis_client.getEigenMatrix(EE_POSITION_DESIRED_KEY);
+		try {
+			x = redis_client.getEigenMatrix(EE_POSITION_KEY);
+			x_des = redis_client.getEigenMatrix(EE_POSITION_DESIRED_KEY);
+		} catch (std::exception& e) {
+		}
 
 		// Update end effector position trajectory
 		if ((x - x_prev).norm() > kTrajectoryMinUpdateDistance) {
@@ -373,18 +380,18 @@ void parseCommandline(int argc, char** argv) {
 	robot_name = string(argv[3]);
 
 	// Set up Redis keys
-	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = REDIS_KEY_PREFIX + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
-	JOINT_ANGLES_KEY        = REDIS_KEY_PREFIX + robot_name + JOINT_ANGLES_KEY;
-	JOINT_VELOCITIES_KEY    = REDIS_KEY_PREFIX + robot_name + JOINT_VELOCITIES_KEY;
+	JOINT_INTERACTION_TORQUES_COMMANDED_KEY = RedisServer::KEY_PREFIX + robot_name + JOINT_INTERACTION_TORQUES_COMMANDED_KEY;
+	JOINT_ANGLES_KEY        = RedisServer::KEY_PREFIX + robot_name + JOINT_ANGLES_KEY;
+	JOINT_VELOCITIES_KEY    = RedisServer::KEY_PREFIX + robot_name + JOINT_VELOCITIES_KEY;
 
 #ifdef ENABLE_TRAJECTORIES
 	/********** Begin Custom Visualizer Code **********/
 
-	EE_POSITION_KEY         = REDIS_KEY_PREFIX + robot_name + EE_POSITION_KEY;
-	EE_POSITION_DESIRED_KEY = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_KEY;
-	EE_TRAJECTORY_CHAI_NAME         = REDIS_KEY_PREFIX + robot_name + EE_TRAJECTORY_CHAI_NAME;
-	EE_DESIRED_TRAJECTORY_CHAI_NAME = REDIS_KEY_PREFIX + robot_name + EE_DESIRED_TRAJECTORY_CHAI_NAME;
-	EE_POSITION_DESIRED_URDF_NAME = REDIS_KEY_PREFIX + robot_name + EE_POSITION_DESIRED_URDF_NAME;
+	EE_POSITION_KEY         = RedisServer::KEY_PREFIX + robot_name + EE_POSITION_KEY;
+	EE_POSITION_DESIRED_KEY = RedisServer::KEY_PREFIX + robot_name + EE_POSITION_DESIRED_KEY;
+	EE_TRAJECTORY_CHAI_NAME         = RedisServer::KEY_PREFIX + robot_name + EE_TRAJECTORY_CHAI_NAME;
+	EE_DESIRED_TRAJECTORY_CHAI_NAME = RedisServer::KEY_PREFIX + robot_name + EE_DESIRED_TRAJECTORY_CHAI_NAME;
+	EE_POSITION_DESIRED_URDF_NAME = RedisServer::KEY_PREFIX + robot_name + EE_POSITION_DESIRED_URDF_NAME;
 
 	/********** End Custom Visualizer Code **********/
 #endif // ENABLE_TRAJECTORIES
