@@ -34,7 +34,7 @@ Author: Toki Migimatsu <takatoki@stanford.edu>
 #include <Eigen/Core>
 
 #ifdef USE_KUKA_LBR_DYNAMICS
-	#include <KukaLBRDynamics/Robot.h>
+	#include "KukaLBRDynamics/Robot.h"
 	#include <rbdl/Model.h>
 	#ifndef RBDL_BUILD_ADDON_URDFREADER
 		#error "Error: RBDL addon urdfmodel not enabled."
@@ -80,11 +80,19 @@ protected:
 	/***** Constants *****/
 
 	// Kv for damped exit
-	const double arr_kExitKv[KukaIIWA::DOF] = {8, 8, 5, 5, 5, 2, 2};
-	const Eigen::ArrayXd kExitKv = Eigen::Array<double,7,1>(arr_kExitKv);
+	const Eigen::ArrayXd kExitKv = KukaIIWA::VectorXd(8, 8, 5, 5, 5, 2, 2);
 
 	// Cutoff frequency for velocity filter, in the range of (0, 0.5) of sampling frequency
 	const double kCutoffFreq = 0.1;
+
+	// Torque offsets
+	const Eigen::VectorXd kTorqueOffset = KukaIIWA::VectorXd(-0.5, 1.0, 0.0, -0.7, 0.0, 0.12, 0.0);
+
+#ifdef USE_KUKA_LBR_DYNAMICS
+	// Constant end effector properties (without tool.xml)
+	const double kMassEE = 0.2;
+	const Eigen::Vector3d kCenterOfMassEE = Eigen::Vector3d(0, 0, -0.081);
+#endif  // USE_KUKA_LBR_DYNAMICS
 
 	/***** State Variables *****/
 

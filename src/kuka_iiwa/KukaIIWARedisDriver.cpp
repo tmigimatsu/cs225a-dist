@@ -21,11 +21,9 @@
 
 #include "KukaIIWARedisDriver.h"
 #include "ButterworthFilter.h"
-#include "redis/RedisClient.h"
 
-#include <friLBRClient.h>
-#include <friUdpConnection.h>
-#include <friClientApplication.h>
+#include "friUdpConnection.h"
+#include "friClientApplication.h"
 #include <tinyxml2.h>
 
 #include <string>
@@ -196,6 +194,10 @@ KukaIIWARedisDriver::KukaIIWARedisDriver(const std::string& redis_ip, const int 
 			      << ". Controllers must be run AFTER the driver has initialized." << std::endl;
 		exit(1);
 	}
+
+	// Initialize tool parameters from tool.xml
+	redis_.set(KukaIIWA::KEY_TOOL_MASS, std::to_string(tool_mass_));
+	redis_.setEigenMatrix(KukaIIWA::KEY_TOOL_COM, tool_com_);
 }
 
 
@@ -246,52 +248,57 @@ void KukaIIWARedisDriver::waitForCommand()
 
 void KukaIIWARedisDriver::command()
 {
-	// In command(), the joint values have to be sent. Which is done by calling
-	// the base method.
+	// Send joint values in the base command
 	LBRClient::command();
 
-	// check for control mode change
+	// Check for control mode change
 	KUKA::FRI::EClientCommandMode fri_command_mode_next = robotState().getClientCommandMode();
 	if (fri_command_mode_next != fri_command_mode_) {
 		fri_command_mode_ = fri_command_mode_next;
 		printCommandMode(fri_command_mode_);
 	}
 
-	// get the position and measure torque
+	// Get the position and measured torque
 	memcpy(arr_q_, robotState().getMeasuredJointPosition(), DOF * sizeof(double));
 	memcpy(arr_sensor_torques_, robotState().getMeasuredTorque(), DOF * sizeof(double));
 
-	// get the time
+	// Get the time
 	timespec time;
 	time.tv_sec = robotState().getTimestampSec();
 	time.tv_nsec = robotState().getTimestampNanoSec();
 
-	// get the velocity
+	// Get the velocity
 	if (t_prev_.tv_sec == 0 && t_prev_.tv_nsec == 0) {
-		// if not initialized, set to zero
+		// If not initialized, set to zero
 		dq_.setZero();
 		dq_filtered_.setZero();
 	} else {
-		// velocity = (position - last position)/(time - last time)
+		// Velocity = (position - last position)/(time - last time)
 		double dt = elapsedTime(t_prev_, time);
 		dq_ = (q_ - q_prev_) / dt;
 		dq_filtered_ = velocity_filter_.update(dq_);
 	}
 
-	// Send positions, velocities and sensed torques
+	// Send positions, velocities and sensed torques to Redis
 	redis_.pipeset({
 		{KEY_JOINT_POSITIONS,  RedisClient::encodeEigenMatrix(q_)},
 		{KEY_JOINT_VELOCITIES, RedisClient::encodeEigenMatrix(dq_filtered_)},
 		{KEY_SENSOR_TORQUES,   RedisClient::encodeEigenMatrix(sensor_torques_)}
 	});
 
-	// Get commanded torques or joint positions
+	// Read values from Redis
 	try {
+		// Get commanded torques or joint positions
 		if (fri_command_mode_ == KUKA::FRI::TORQUE) {
 			command_torques_ = redis_.getEigenMatrix(KEY_COMMAND_TORQUES);
 		} else if (fri_command_mode_ == KUKA::FRI::POSITION) {
 			q_des_ = redis_.getEigenMatrix(KEY_DESIRED_JOINT_POSITIONS);
 		}
+
+		// Get tool parameters
+		auto tool_vals = redis_.pipeget({KukaIIWA::KEY_TOOL_MASS, KukaIIWA::KEY_TOOL_COM});
+		tool_mass_ = std::stod(tool_vals[0]);
+		tool_com_  = RedisClient::decodeEigenMatrix(tool_vals[1]);
 	} catch (std::exception& e) {
 		std::cout << e.what() << std::endl
 		          << "Setting command torques and joint positions to 0." << std::endl;
@@ -305,29 +312,37 @@ void KukaIIWARedisDriver::command()
 		exit_counter_--;
 	}
 
-	// ADD GRAVITY COMPENSATION FOR TOOL
+	// Add gravity compensation for tool
 #ifdef USE_KUKA_LBR_DYNAMICS
 	if (fri_command_mode_ == KUKA::FRI::TORQUE) {
-		// Find tool Jacobian
-		Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, DOF);
+		// Find ee Jacobian
+		Eigen::MatrixXd J0 = Eigen::MatrixXd::Zero(6, DOF);
 		Eigen::VectorXd q_temp = q_;
-		dynamics_.getJacobian(J, q_temp, tool_com_, DOF);
+		dynamics_.getJacobian(J0, q_temp, kCenterOfMassEE, DOF);
+		Eigen::MatrixXd J_ee = J0.block(0,0,3,DOF);
+
+		// Find ee weight
+		Eigen::Vector3d F_grav_ee = Eigen::Vector3d(0, 0, -9.81 * kMassEE);
+
+		// Find tool Jacobian
+		q_temp = q_;
+		dynamics_.getJacobian(J0, q_temp, tool_com_, DOF);
+		Eigen::MatrixXd J_tool = J0.block(0,0,3,DOF);
 
 		// Find tool weight
-		Eigen::VectorXd F_grav_tool = Eigen::VectorXd::Zero(6);
-		F_grav_tool(2) = -9.81 * tool_mass_;
+		Eigen::Vector3d F_grav_tool = Eigen::Vector3d(0, 0, -9.81 * tool_mass_);
 
-		// Compensate for tool weight
-		command_torques_ -= J.transpose() * F_grav_tool;
+		// Compensate for ee + tool weight
+		command_torques_ -= J_ee.transpose() * F_grav_ee + J_tool.transpose() * F_grav_tool;
 	}
 #endif
 
-	// COMPENSATE FOR THE OFFSET IN THE FIRST JOINT
+	// Compensate for torque offsets
 	if (fri_command_mode_ == KUKA::FRI::TORQUE) {
-		command_torques_(0) -= 0.3;
+		command_torques_ += kTorqueOffset;
 	}
 
-	// CHECK COMMAND
+	// Check command
 	switch (fri_command_mode_) {
 		case KUKA::FRI::NO_COMMAND_MODE:
 			break;
@@ -401,7 +416,7 @@ void KukaIIWARedisDriver::command()
 			break;
 	}
 
-	// SEND COMMAND
+	// Send command
 	switch (fri_command_mode_) {
 		case KUKA::FRI::NO_COMMAND_MODE:
 			break;
