@@ -12,6 +12,7 @@
 
 // std
 #include <iostream>
+#include <math.h>
 
 OptiTrackClient::~OptiTrackClient() {
 	closeConnection();
@@ -161,9 +162,14 @@ bool OptiTrackClient::openCsv(const std::string& filename) {
 
 	// Set buffer sizes
 	pos_rigid_bodies_.resize(num_rigid_bodies);
+	for (auto& pos_rigid_body : pos_rigid_bodies_) pos_rigid_body.fill(NAN);
+
 	ori_rigid_bodies_.resize(num_rigid_bodies);
+	for (auto& ori_rigid_body : ori_rigid_bodies_) ori_rigid_body.coeffs().fill(NAN);
+
 	num_single_marker_ids_ = num_markers;
 	pos_single_markers_.resize(num_markers);
+	for (auto& pos_single_marker : pos_single_markers_) pos_single_marker.fill(NAN);
 
 	return true;
 }
@@ -271,19 +277,21 @@ bool OptiTrackClient::readCsvFrame() {
 	int idx_pos_rigid_body = 0;
 	int idx_ori_rigid_body = 0;
 	int idx_pos_single_marker = 0;
-	pos_single_markers_.resize(num_single_marker_ids_);
+	// pos_single_markers_.resize(num_single_marker_ids_);
 	for (auto marker_type : marker_types_) {
 		if (marker_type == RIGID_BODY_POSITION) {
 			// Parse rigid body position: x,y,z,err
-			float x, y, z, e;
+			float x = NAN, y = NAN, z = NAN, e = NAN;
 			ss_line >> x >> comma >> y >> comma >> z >> comma >> e;
-			pos_rigid_bodies_[idx_pos_rigid_body] = Eigen::Vector3f(x, y, z);
+			if (!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+				pos_rigid_bodies_[idx_pos_rigid_body] = Eigen::Vector3f(x, y, z);
 			idx_pos_rigid_body++;
 		} else if (marker_type == RIGID_BODY_ORIENTATION) {
 			// Parse rigid body orientation: x,y,z,w
-			float w, x, y, z;
+			float w = NAN, x = NAN, y = NAN, z = NAN;
 			ss_line >> x >> comma >> y >> comma >> z >> comma >> w;
-			ori_rigid_bodies_[idx_ori_rigid_body] = Eigen::Quaternionf(w, x, y, z);
+			if (!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+				ori_rigid_bodies_[idx_ori_rigid_body] = Eigen::Quaternionf(w, x, y, z);
 			idx_ori_rigid_body++;
 		} else if (marker_type == SINGLE_MARKER_POSITION) {
 			if (ss_line.peek() == ',') {
@@ -291,9 +299,10 @@ bool OptiTrackClient::readCsvFrame() {
 				for (int i = 0; i < 2; i++) ss_line >> comma;
 			} else {
 				// Parse single marker position: x,y,z
-				float x, y, z;
+				float x = NAN, y = NAN, z = NAN;
 				ss_line >> x >> comma >> y >> comma >> z;
-				pos_single_markers_[idx_pos_single_marker] = Eigen::Vector3f(x, y, z);
+				if (!std::isnan(x) && !std::isnan(y) && !std::isnan(z))
+					pos_single_markers_[idx_pos_single_marker] = Eigen::Vector3f(x, y, z);
 				idx_pos_single_marker++;
 			}
 		} else {
@@ -304,7 +313,7 @@ bool OptiTrackClient::readCsvFrame() {
 		// Parse comma
 		ss_line >> comma;
 	}
-	pos_single_markers_.resize(idx_pos_single_marker);
+	// pos_single_markers_.resize(idx_pos_single_marker);
 
 	return true;
 }
