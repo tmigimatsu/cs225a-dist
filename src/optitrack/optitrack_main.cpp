@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
 	// Connect to Redis
 	RedisClient redis;
 	redis.connect(redis_ip, redis_port);
+	std::cout << "Connected to Redis server: " << redis_ip << ":" << redis_port << std::endl;
 
 	// Connect to OptiTrack
 	OptiTrackClient optitrack;
@@ -81,7 +82,7 @@ int main(int argc, char** argv) {
 		optitrack.openCsv(csv_file);
 	} else if (!local_ip.empty()) {
 		std::cout << "Opening network connection: " << local_ip << " to " << optitrack_ip << std::endl;
-		optitrack.openConnection(local_ip, optitrack_ip);
+		if (!optitrack.openConnection(local_ip, optitrack_ip)) exit(1);
 	} else {
 		std::cout << "Need to specify a CSV file or the local public IP address." << std::endl;
 		exit(1);
