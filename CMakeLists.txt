@@ -64,6 +64,7 @@ add_subdirectory(src/simulation)
 add_subdirectory(src/demo_project)
 
 # add_subdirectory(src/optitrack)
+# add_subdirectory(src/optoforce)
 # add_subdirectory(src/kuka_iiwa)
 # add_subdirectory(src/kinova_jaco)
 # add_subdirectory(src/sawyer)
