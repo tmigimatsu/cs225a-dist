@@ -60,6 +60,20 @@ if [ -f "demo_project" ]; then
 	fi
 	cd ../..
 fi
+if [ -f "kuka_iiwa_driver" ]; then
+	cd resources/kuka_iiwa_driver
+	if [ ! -e "kuka_iiwa_graphics" ]; then
+		ln -s ../../../resources/kuka_iiwa_graphics .
+	fi
+	cd ../..
+fi
+if [ -f "kuka_hold_pos" ]; then
+	cd resources/kuka_hold_pos
+	if [ ! -e "kuka_iiwa_graphics" ]; then
+		ln -s ../../../resources/kuka_iiwa_graphics .
+	fi
+	cd ../..
+fi
 cd ..
 
 # Insert helper scripts into bin directory

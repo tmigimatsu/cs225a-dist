@@ -1,18 +1,19 @@
 #ifndef DEMO_PROJECT_H
 #define DEMO_PROJECT_H
 
-// cs225a includes
+// CS225a
 #include "redis/RedisClient.h"
 #include "timer/LoopTimer.h"
+#include "optitrack/OptiTrackClient.h"
 
-// external includes
+// Standard
+#include <string>
+#include <thread>
+
+// External
 #include <Eigen/Core>
 #include <hiredis/hiredis.h>
 #include <model/ModelInterface.h>
-
-// std includes
-#include <string>
-#include <thread>
 
 class DemoProject {
 
@@ -22,26 +23,24 @@ public:
 		        const std::string &robot_name) :
 		robot(robot),
 		dof(robot->dof()),
-		JOINT_TORQUES_COMMANDED_KEY(kRedisKeyPrefix + robot_name + "::actuators::fgc"),
-		EE_POSITION_KEY            (kRedisKeyPrefix + robot_name + "::tasks::ee_pos"),
-		EE_POSITION_DESIRED_KEY    (kRedisKeyPrefix + robot_name + "::tasks::ee_pos_des"),
-		JOINT_ANGLES_KEY           (kRedisKeyPrefix + robot_name + "::sensors::q"),
-		JOINT_VELOCITIES_KEY       (kRedisKeyPrefix + robot_name + "::sensors::dq"),
-		TIMESTAMP_KEY              (kRedisKeyPrefix + robot_name + "::timestamp"),
-		KP_POSITION_KEY            (kRedisKeyPrefix + robot_name + "::tasks::kp_pos"),
-		KV_POSITION_KEY            (kRedisKeyPrefix + robot_name + "::tasks::kv_pos"),
-		KP_ORIENTATION_KEY         (kRedisKeyPrefix + robot_name + "::tasks::kp_ori"),
-		KV_ORIENTATION_KEY         (kRedisKeyPrefix + robot_name + "::tasks::kv_ori"),
-		KP_JOINT_KEY               (kRedisKeyPrefix + robot_name + "::tasks::kp_joint"),
-		KV_JOINT_KEY               (kRedisKeyPrefix + robot_name + "::tasks::kv_joint"),
+		KEY_COMMAND_TORQUES (RedisServer::KEY_PREFIX + robot_name + "::actuators::fgc"),
+		KEY_EE_POS          (RedisServer::KEY_PREFIX + robot_name + "::tasks::ee_pos"),
+		KEY_EE_POS_DES      (RedisServer::KEY_PREFIX + robot_name + "::tasks::ee_pos_des"),
+		KEY_JOINT_POSITIONS (RedisServer::KEY_PREFIX + robot_name + "::sensors::q"),
+		KEY_JOINT_VELOCITIES(RedisServer::KEY_PREFIX + robot_name + "::sensors::dq"),
+		KEY_TIMESTAMP       (RedisServer::KEY_PREFIX + robot_name + "::timestamp"),
+		KEY_KP_POSITION     (RedisServer::KEY_PREFIX + robot_name + "::tasks::kp_pos"),
+		KEY_KV_POSITION     (RedisServer::KEY_PREFIX + robot_name + "::tasks::kv_pos"),
+		KEY_KP_ORIENTATION  (RedisServer::KEY_PREFIX + robot_name + "::tasks::kp_ori"),
+		KEY_KV_ORIENTATION  (RedisServer::KEY_PREFIX + robot_name + "::tasks::kv_ori"),
+		KEY_KP_JOINT        (RedisServer::KEY_PREFIX + robot_name + "::tasks::kp_joint"),
+		KEY_KV_JOINT        (RedisServer::KEY_PREFIX + robot_name + "::tasks::kv_joint"),
 		command_torques_(dof),
 		Jv_(3, dof),
 		N_(dof, dof),
-		Lambda_x_(3, 3),
 		g_(dof),
 		q_des_(dof),
-		dq_des_(dof),
-		controller_state_(REDIS_SYNCHRONIZATION)
+		dq_des_(dof)
 	{
 		command_torques_.setZero();
 
@@ -87,30 +86,24 @@ protected:
 	const int kControlFreq = 1000;         // 1 kHz control loop
 	const int kInitializationPause = 1e6;  // 1ms pause before starting control loop
 
-	const HiredisServerInfo kRedisServerInfo = {
-		"127.0.0.1",  // hostname
-		6379,         // port
-		{ 1, 500000 } // timeout = 1.5 seconds
-	};
+	const std::string kRedisHostname = "127.0.0.1";
+	const int kRedisPort = 6379;
 
 	// Redis keys:
-	const std::string kRedisKeyPrefix = "cs225a::robot::";
 	// - write:
-	const std::string JOINT_TORQUES_COMMANDED_KEY;
-	const std::string EE_POSITION_KEY;
-	const std::string EE_POSITION_DESIRED_KEY;
+	const std::string KEY_COMMAND_TORQUES;
+	const std::string KEY_EE_POS;
+	const std::string KEY_EE_POS_DES;
 	// - read:
-	const std::string JOINT_ANGLES_KEY;
-	const std::string JOINT_VELOCITIES_KEY;
-	const std::string TIMESTAMP_KEY;
-	const std::string KP_POSITION_KEY;
-	const std::string KV_POSITION_KEY;
-	const std::string KP_ORIENTATION_KEY;
-	const std::string KV_ORIENTATION_KEY;
-	const std::string KP_JOINT_KEY;
-	const std::string KV_JOINT_KEY;
-	const std::string KP_JOINT_INIT_KEY;
-	const std::string KV_JOINT_INIT_KEY;
+	const std::string KEY_JOINT_POSITIONS;
+	const std::string KEY_JOINT_VELOCITIES;
+	const std::string KEY_TIMESTAMP;
+	const std::string KEY_KP_POSITION;
+	const std::string KEY_KV_POSITION;
+	const std::string KEY_KP_ORIENTATION;
+	const std::string KEY_KV_ORIENTATION;
+	const std::string KEY_KP_JOINT;
+	const std::string KEY_KV_JOINT;
 
 	/***** Member functions *****/
 
@@ -126,22 +119,24 @@ protected:
 	const std::shared_ptr<Model::ModelInterface> robot;
 
 	// Redis
-	RedisClient redis_client_;
-	std::string redis_buf_;
+	RedisClient redis_;
 
 	// Timer
 	LoopTimer timer_;
 	double t_curr_;
 	uint64_t controller_counter_ = 0;
 
+	// OptiTrack
+	OptiTrackClient optitrack_;
+
 	// State machine
-	ControllerState controller_state_;
+	ControllerState controller_state_ = REDIS_SYNCHRONIZATION;
 
 	// Controller variables
 	Eigen::VectorXd command_torques_;
 	Eigen::MatrixXd Jv_;
 	Eigen::MatrixXd N_;
-	Eigen::MatrixXd Lambda_x_;
+	Eigen::MatrixXd Lambda_x_ = Eigen::MatrixXd(3, 3);
 	Eigen::VectorXd g_;
 	Eigen::Vector3d x_, dx_;
 	Eigen::VectorXd q_des_, dq_des_;
@@ -156,4 +151,4 @@ protected:
 	double kv_joint_ = 10;
 };
 
-#endif //DEMO_PROJECT_H
+#endif  // DEMO_PROJECT_H

@@ -139,3 +139,14 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j4
 cd ../..
 
+# -------------------
+# Install NatNetLinux
+# -------------------
+
+# TODO: Test
+cd external/NatNetLinux.git
+git submodule update --init
+cd ../..
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+	sudo apt-get install libboost-all-dev
+fi
